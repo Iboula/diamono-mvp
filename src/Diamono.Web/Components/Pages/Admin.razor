@@ -1,0 +1,48 @@
+@page "/admin"
+@rendermode InteractiveServer
+@inject DiamonoDbContext Db
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Backoffice — Diamono</PageTitle>
+
+<section class="admin-head">
+    <div><div class="eyebrow dark">BACKOFFICE · DÉMO</div><h1>Pilotage du Stade Diamono</h1></div>
+    <a class="button primary" href="/reserve">+ Nouvelle réservation</a>
+</section>
+
+<section class="kpis">
+    <article><span>Demandes en attente</span><strong>@pending</strong></article>
+    <article><span>Réservations confirmées</span><strong>@confirmed</strong></article>
+    <article><span>CA potentiel</span><strong>@($"{potential:N0} F")</strong></article>
+    <article><span>Créneaux aujourd'hui</span><strong>08h—23h</strong></article>
+</section>
+
+<section class="admin-card">
+    <div class="card-title"><div><h2>Dernières demandes</h2><p>Vue opérationnelle du gestionnaire.</p></div></div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Référence</th><th>Client</th><th>Date</th><th>Activité</th><th>Montant</th><th>Statut</th></tr></thead>
+            <tbody>
+            @if (bookings.Count == 0) { <tr><td colspan="6" class="empty">Aucune demande. Crée une réservation depuis le site public pour alimenter la démo.</td></tr> }
+            @foreach (var b in bookings)
+            {
+                <tr><td><strong>@b.Reference</strong></td><td>@b.CustomerName<br/><small>@b.Phone</small></td><td>@b.StartsAt.ToString("dd/MM/yyyy HH:mm")</td><td>@b.ActivityType</td><td>@($"{b.TotalAmount:N0} F")</td><td><span class="status">@b.Status</span></td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+@code {
+    private List<Booking> bookings = [];
+    private int pending, confirmed;
+    private decimal potential;
+
+    protected override async Task OnInitializedAsync()
+    {
+        bookings = await Db.Bookings.AsNoTracking().OrderByDescending(x => x.CreatedAt).Take(12).ToListAsync();
+        pending = bookings.Count(x => x.Status == BookingStatus.PendingApproval);
+        confirmed = bookings.Count(x => x.Status == BookingStatus.Confirmed);
+        potential = bookings.Sum(x => x.TotalAmount);
+    }
+}

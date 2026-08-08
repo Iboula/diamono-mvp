@@ -1,0 +1,11 @@
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Domain\bin\Debug\net10.0\Diamono.Domain.deps.json
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Domain\bin\Debug\net10.0\Diamono.Domain.dll
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Domain\bin\Debug\net10.0\Diamono.Domain.pdb
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Domain\obj\Debug\net10.0\Diamono.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Domain\obj\Debug\net10.0\Diamono.Domain.AssemblyInfoInputs.cache
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Domain\obj\Debug\net10.0\Diamono.Domain.AssemblyInfo.cs
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Domain\obj\Debug\net10.0\Diamono.Domain.csproj.CoreCompileInputs.cache
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Domain\obj\Debug\net10.0\Diamono.Domain.dll
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Domain\obj\Debug\net10.0\refint\Diamono.Domain.dll
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Domain\obj\Debug\net10.0\Diamono.Domain.pdb
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Domain\obj\Debug\net10.0\ref\Diamono.Domain.dll

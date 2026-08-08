@@ -1,0 +1,15 @@
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Application\bin\Debug\net10.0\Diamono.Application.deps.json
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Application\bin\Debug\net10.0\Diamono.Application.dll
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Application\bin\Debug\net10.0\Diamono.Application.pdb
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Application\bin\Debug\net10.0\Diamono.Domain.dll
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Application\bin\Debug\net10.0\Diamono.Domain.pdb
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Application\obj\Debug\net10.0\Diamono.Application.csproj.AssemblyReference.cache
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Application\obj\Debug\net10.0\Diamono.Application.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Application\obj\Debug\net10.0\Diamono.Application.AssemblyInfoInputs.cache
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Application\obj\Debug\net10.0\Diamono.Application.AssemblyInfo.cs
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Application\obj\Debug\net10.0\Diamono.Application.csproj.CoreCompileInputs.cache
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Application\obj\Debug\net10.0\Diamono..BA0AE738.Up2Date
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Application\obj\Debug\net10.0\Diamono.Application.dll
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Application\obj\Debug\net10.0\refint\Diamono.Application.dll
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Application\obj\Debug\net10.0\Diamono.Application.pdb
+C:\Users\iboul\Documents\PROJETS\diamono-mvp-v0.1\diamono-mvp\src\Diamono.Application\obj\Debug\net10.0\ref\Diamono.Application.dll

@@ -1,0 +1,94 @@
+@page "/reserve"
+@rendermode InteractiveServer
+@inject BookingApplicationService BookingService
+
+<PageTitle>Réserver — Stade Diamono</PageTitle>
+
+<section class="page-hero compact">
+    <div class="eyebrow">RÉSERVATION</div>
+    <h1>Choisissez votre créneau.</h1>
+    <p>Le tarif affiché est une estimation selon les règles MVP actuelles.</p>
+</section>
+
+<section class="booking-wrap">
+    <EditForm Model="model" OnValidSubmit="SubmitAsync" class="booking-form">
+        <DataAnnotationsValidator />
+        <div class="field-grid">
+            <label>Date<input type="date" @bind="model.Date" min="@DateTime.Today.ToString("yyyy-MM-dd")" /></label>
+            <label>Début<select @bind="model.StartHour">@foreach (var h in startHours) { <option value="@h">@($"{h:00}:00")</option> }</select></label>
+            <label>Durée<select @bind="model.DurationHours"><option value="2">2 heures</option><option value="4">4 heures</option><option value="6">6 heures</option></select></label>
+            <label>Profil<select @bind="model.Category"><option value="@CustomerCategory.Individual">Particulier</option><option value="@CustomerCategory.LocalAsc">ASC de Cambérène</option><option value="@CustomerCategory.Club">Club</option><option value="@CustomerCategory.Association">Association</option><option value="@CustomerCategory.School">École</option><option value="@CustomerCategory.Company">Entreprise</option></select></label>
+            <label>Activité<select @bind="model.ActivityType"><option>Match</option><option>Entraînement</option><option>Tournoi</option><option>École de football</option><option>Événement sportif</option></select></label>
+            <label>Nom du responsable<input @bind="model.CustomerName" placeholder="Ex. Mamadou Ndiaye" /></label>
+            <label>Téléphone<input @bind="model.Phone" placeholder="+221 77 000 00 00" /></label>
+        </div>
+        <div class="form-actions">
+            <button type="button" class="button ghost-dark" @onclick="RefreshQuote">Mettre à jour le prix</button>
+            <button class="button primary" type="submit">Envoyer la demande</button>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(error)) { <div class="alert error">@error</div> }
+        @if (createdReference is not null) { <div class="alert success"><strong>Demande envoyée.</strong> Référence : @createdReference</div> }
+    </EditForm>
+
+    <aside class="quote-card">
+        <span class="eyebrow dark">ESTIMATION</span>
+        <h2>@model.Date.ToString("dd MMM yyyy")</h2>
+        <p>@($"{model.StartHour:00}:00 — {model.StartHour + model.DurationHours:00}:00")</p>
+        <hr />
+        <div class="price-row"><span>Location terrain</span><strong>@Format(quote.RentalAmount)</strong></div>
+        <div class="price-row"><span>Éclairage</span><strong>@Format(quote.LightingAmount)</strong></div>
+        <div class="price-row"><span>Caution</span><strong>@Format(quote.DepositAmount)</strong></div>
+        <div class="total"><span>Total estimé</span><strong>@Format(quote.TotalAmount)</strong></div>
+        <small>Le paiement n'est demandé qu'après validation par la direction du stade.</small>
+    </aside>
+</section>
+
+@code {
+    private readonly int[] startHours = Enumerable.Range(8, 14).ToArray();
+    private BookingForm model = new() { Date = DateTime.Today.AddDays(1), StartHour = 18, DurationHours = 2, ActivityType = "Match", Category = CustomerCategory.Individual };
+    private PriceQuote quote;
+    private string? error;
+    private string? createdReference;
+
+    protected override void OnInitialized() => RefreshQuote();
+
+    private (DateTimeOffset Start, DateTimeOffset End) Period()
+    {
+        var start = new DateTimeOffset(model.Date.Date.AddHours(model.StartHour), TimeSpan.Zero);
+        return (start, start.AddHours(model.DurationHours));
+    }
+
+    private void RefreshQuote()
+    {
+        error = null;
+        try { var p = Period(); quote = BookingService.Quote(p.Start, p.End, model.Category); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private async Task SubmitAsync()
+    {
+        error = null; createdReference = null;
+        try
+        {
+            var p = Period();
+            var booking = await BookingService.CreateAsync(new CreateBookingRequest(SeedData.MainPitchId, p.Start, p.End,
+                model.CustomerName, model.Phone, model.Category, model.ActivityType));
+            createdReference = booking.Reference;
+            RefreshQuote();
+        }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private static string Format(decimal amount) => $"{amount:N0} F CFA";
+
+    private sealed class BookingForm
+    {
+        public DateTime Date { get; set; }
+        public int StartHour { get; set; }
+        public int DurationHours { get; set; }
+        public CustomerCategory Category { get; set; }
+        public string ActivityType { get; set; } = "Match";
+        public string CustomerName { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+    }
+}

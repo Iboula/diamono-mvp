@@ -1,0 +1,19 @@
+@inherits LayoutComponentBase
+
+<div class="shell">
+    <header class="topbar">
+        <a href="/" class="brand"><span class="brand-mark">D</span><span>Diamono</span></a>
+        <nav>
+            <a href="/">Accueil</a>
+            <a href="/reserve">Réserver</a>
+            <a href="/admin">Backoffice</a>
+        </nav>
+        <a class="top-cta" href="/reserve">Réserver un créneau</a>
+    </header>
+    <main>@Body</main>
+    <footer>
+        <strong>Stade Diamono de Cambérène</strong>
+        <span>Prototype MVP — règles de location provisoires à valider avec la direction.</span>
+    </footer>
+</div>
+<RadzenComponents @rendermode="InteractiveServer" />
