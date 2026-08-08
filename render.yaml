@@ -11,6 +11,8 @@ services:
         value: Production
       - key: ASPNETCORE_URLS
         value: http://+:8080
+      - key: DIAMONO_ENABLE_DEMO_ADMIN
+        value: "false"
       - key: DIAMONO_CONNECTION
         sync: false
       - key: DIAMONO_ADMIN_PASSWORD

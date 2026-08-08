@@ -34,6 +34,7 @@ builder.Services.AddScoped<ICurrentUserAccessor>(sp => sp.GetRequiredService<Per
 builder.Services.AddScoped<IDatabaseMigrationRunner, EfDatabaseMigrationRunner>();
 builder.Services.AddScoped<ISeedDataRunner, SeedDataRunner>();
 builder.Services.AddScoped<DatabaseStartupCoordinator>();
+builder.Services.AddScoped<DemoAdminBootstrapper>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -182,14 +183,7 @@ await using (var scope = app.Services.CreateAsyncScope())
 
     await IdentitySeed.SeedRolesAsync(services.GetRequiredService<RoleManager<ApplicationRole>>());
 
-    // Le compte de demonstration n'existe qu'en dehors de la production.
-    if (!app.Environment.IsProduction())
-    {
-        await IdentitySeed.SeedDemoAdminAsync(
-            services.GetRequiredService<UserManager<ApplicationUser>>(),
-            app.Configuration[IdentitySeed.AdminPasswordConfigurationKey],
-            services.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(IdentitySeed)));
-    }
+    await services.GetRequiredService<DemoAdminBootstrapper>().BootstrapAsync();
 }
 
 app.Run();

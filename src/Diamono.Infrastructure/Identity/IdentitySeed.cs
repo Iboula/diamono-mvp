@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 namespace Diamono.Infrastructure.Identity;
 
 /// <summary>
-/// Seed des roles (toujours) et du compte de demonstration (Development/Demo uniquement).
+/// Seed des roles (toujours) et du compte de demonstration lorsque le bootstrap demo est autorise.
 /// Aucun mot de passe n'est ecrit dans le depot : il provient de la configuration
 /// <c>DIAMONO_ADMIN_PASSWORD</c>. Sans valeur fournie, le compte n'est pas cree et la
 /// procedure locale est journalisee — on n'invente jamais de secret silencieusement.
@@ -29,7 +29,7 @@ public static class IdentitySeed
 
     /// <summary>
     /// Cree ou met a jour le compte SuperAdmin de demonstration.
-    /// A n'appeler que hors production.
+    /// En production, l'appel doit etre protege par un flag explicite cote Web.
     /// </summary>
     public static async Task SeedDemoAdminAsync(
         UserManager<ApplicationUser> userManager,

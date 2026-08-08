@@ -30,11 +30,16 @@ Obligatoires :
 
 - `ASPNETCORE_ENVIRONMENT=Production`
 - `ASPNETCORE_URLS=http://+:8080`
+- `DIAMONO_ENABLE_DEMO_ADMIN=true` pour la demo Render uniquement
 - `DIAMONO_CONNECTION`
 - `DIAMONO_ADMIN_PASSWORD`
 
 `DIAMONO_CONNECTION` doit pointer vers PostgreSQL avec SSL si Render fournit
 une base managée qui l'exige. Ne pas exposer PostgreSQL publiquement.
+
+`DIAMONO_ENABLE_DEMO_ADMIN` ne doit pas etre active sur un environnement mairie
+ou production reelle. Sans ce flag explicite, aucun compte demo n'est cree en
+`Production`.
 
 ## Blueprint
 
