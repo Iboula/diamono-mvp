@@ -10,7 +10,6 @@ public static class SeedData
 
     public static async Task InitializeAsync(DiamonoDbContext db, CancellationToken cancellationToken = default)
     {
-        await db.Database.EnsureCreatedAsync(cancellationToken);
         var settings = await db.StadiumBookingSettings
             .FirstOrDefaultAsync(x => x.Id == StadiumBookingSettings.SingletonId, cancellationToken);
         if (settings is null)

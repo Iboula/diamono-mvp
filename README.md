@@ -1,32 +1,70 @@
 # Diamono MVP v0.1
 
-Prototype de réservation du Stade Diamono de Cambérène.
+Prototype de reservation du Stade Diamono de Camberene.
 
-## Ce qui est déjà inclus
-- Homepage responsive utilisant des photos réelles fournies pour le prototype
-- Formulaire de réservation
-- Calcul tarif standard / ASC / éclairage / caution
-- Création de demande `PendingApproval`
-- Détection d'overlap applicative
-- Backoffice de démonstration listant les demandes
+## Inclus
+
+- Accueil responsive
+- Disponibilites publiques
+- Formulaire de reservation
+- Workflow de validation et paiement
+- Blocages operationnels du terrain
+- Backoffice de gestion
+- Parametrage metier persiste
 - PostgreSQL 17 via Docker Compose
-- Documentation BMAD légère (brief, règles, architecture, stories)
 
-## Prérequis
+## Prerequis
+
 - .NET SDK 10
 - Docker Desktop / Docker Engine
 
-## Lancer
+## Fresh Install
+
 ```bash
 docker compose up -d
 dotnet restore Diamono.slnx
+dotnet ef database update --project src/Diamono.Infrastructure --startup-project src/Diamono.Web
 dotnet run --project src/Diamono.Web
 ```
 
-Le schéma est créé automatiquement pour accélérer la démo (`EnsureCreated`). Avant production, remplacer ce mécanisme par des migrations EF Core versionnées.
+Les migrations EF Core sont la source de verite du schema. L'application ne lance pas `EnsureCreatedAsync` et ne migre pas automatiquement la base au demarrage.
 
-## Important
-Les tarifs et horaires sont des hypothèses MVP. Ils ne constituent pas des tarifs officiels du Stade Diamono.
+## Upgrade
 
-## Limite connue volontaire
-La protection contre les doubles réservations est aujourd'hui applicative. Avant déploiement avec plusieurs pods/instances, implémenter une contrainte PostgreSQL de non-chevauchement et le workflow transactionnel correspondant.
+Appliquer les migrations sur la base existante :
+
+```bash
+dotnet ef database update --project src/Diamono.Infrastructure --startup-project src/Diamono.Web
+```
+
+Puis lancer l'application :
+
+```bash
+dotnet run --project src/Diamono.Web
+```
+
+## Base de test dediee
+
+Pour viser une autre base sans modifier `appsettings.json`, utiliser `DIAMONO_CONNECTION` :
+
+```bash
+DIAMONO_CONNECTION="Host=localhost;Port=5432;Database=diamono_fresh_test;Username=diamono;Password=diamono_dev" dotnet ef database update --project src/Diamono.Infrastructure --startup-project src/Diamono.Web
+```
+
+Sous PowerShell :
+
+```powershell
+$env:DIAMONO_CONNECTION="Host=localhost;Port=5432;Database=diamono_fresh_test;Username=diamono;Password=diamono_dev"
+dotnet ef database update --project src/Diamono.Infrastructure --startup-project src/Diamono.Web
+```
+
+## Donnees minimales
+
+Les migrations et le seed idempotent creent :
+
+- le terrain principal
+- les parametres metier MVP : 08:00-23:00, 2h-6h, 25 000 / 15 000 F CFA, eclairage 5 000 F CFA apres 19:00, caution 25 000 F CFA, 60 jours d'anticipation, paiement 24h, validation obligatoire.
+
+## Production
+
+Ne pas executer les migrations automatiquement depuis plusieurs instances web. Les migrations doivent etre une etape de deploiement explicite, executee par une identite autorisee a modifier le schema.
