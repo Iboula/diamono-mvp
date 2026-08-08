@@ -1,13 +1,15 @@
 using Diamono.Application.Abstractions;
 using Diamono.Domain.Bookings;
 using Diamono.Domain.Pricing;
+using Diamono.Domain.Security;
 
 namespace Diamono.Application.Bookings;
 
 public sealed class BookingApplicationService(
     IBookingRepository repository,
     IStadiumBookingSettingsRepository settingsRepository,
-    MvpPricingPolicy pricing)
+    MvpPricingPolicy pricing,
+    IPermissionGuard permissionGuard)
 {
     public async Task<PriceQuote> QuoteAsync(
         DateTimeOffset startsAt,
@@ -39,10 +41,14 @@ public sealed class BookingApplicationService(
     }
 
     public async Task<IReadOnlyList<Booking>> GetBackOfficeBookingsAsync(CancellationToken cancellationToken = default)
-        => await repository.GetBackOfficeAsync(cancellationToken);
+    {
+        await permissionGuard.EnsurePermissionAsync(Permissions.BookingsView, cancellationToken);
+        return await repository.GetBackOfficeAsync(cancellationToken);
+    }
 
     public async Task ApproveBookingAsync(Guid bookingId, CancellationToken cancellationToken = default)
     {
+        await permissionGuard.EnsurePermissionAsync(Permissions.BookingsApprove, cancellationToken);
         var booking = await GetRequiredBookingAsync(bookingId, cancellationToken);
         booking.Approve();
         await repository.SaveChangesAsync(cancellationToken);
@@ -50,6 +56,7 @@ public sealed class BookingApplicationService(
 
     public async Task RejectBookingAsync(Guid bookingId, string reason, CancellationToken cancellationToken = default)
     {
+        await permissionGuard.EnsurePermissionAsync(Permissions.BookingsReject, cancellationToken);
         var booking = await GetRequiredBookingAsync(bookingId, cancellationToken);
         booking.Reject(reason);
         await repository.SaveChangesAsync(cancellationToken);
@@ -57,13 +64,18 @@ public sealed class BookingApplicationService(
 
     public async Task MarkBookingAsPaidAsync(Guid bookingId, CancellationToken cancellationToken = default)
     {
+        await permissionGuard.EnsurePermissionAsync(Permissions.PaymentsMarkPaid, cancellationToken);
         var booking = await GetRequiredBookingAsync(bookingId, cancellationToken);
         booking.ConfirmPayment();
         await repository.SaveChangesAsync(cancellationToken);
     }
 
+    // Hypothese assumee : l'annulation d'une reservation par le backoffice est une
+    // decision de meme nature que le refus, donc rattachee a Bookings.Reject plutot
+    // qu'a une dixieme permission non prevue par la matrice DIA-016B.
     public async Task CancelBookingAsync(Guid bookingId, string reason, CancellationToken cancellationToken = default)
     {
+        await permissionGuard.EnsurePermissionAsync(Permissions.BookingsReject, cancellationToken);
         var booking = await GetRequiredBookingAsync(bookingId, cancellationToken);
         booking.Cancel(reason);
         await repository.SaveChangesAsync(cancellationToken);

@@ -1,0 +1,40 @@
+@page "/logout"
+@using Diamono.Infrastructure.Identity
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager Navigation
+
+@* Rendu statique serveur : la deconnexion doit supprimer le cookie sur la reponse.
+   Le GET n'affiche qu'une confirmation; seul le POST (protege par antiforgery)
+   deconnecte reellement. *@
+
+<PageTitle>Déconnexion — Diamono</PageTitle>
+
+<section class="page-hero compact">
+    <div class="eyebrow">BACKOFFICE</div>
+    <h1>Déconnexion.</h1>
+</section>
+
+<section class="auth-wrap">
+    <AuthorizeView Context="auth">
+        <Authorized>
+            <EditForm Model="this" FormName="logout" OnValidSubmit="LogoutAsync" method="post" class="auth-form">
+                <p>Vous êtes connecté en tant que <strong>@auth.User.Identity?.Name</strong>.</p>
+                <button class="button primary" type="submit">Confirmer la déconnexion</button>
+                <a class="button ghost-dark" href="/admin">Retour au backoffice</a>
+            </EditForm>
+        </Authorized>
+        <NotAuthorized>
+            <p class="muted">Vous n'êtes pas connecté.</p>
+            <a class="button primary" href="/login">Se connecter</a>
+        </NotAuthorized>
+    </AuthorizeView>
+</section>
+
+@code {
+    private async Task LogoutAsync()
+    {
+        await SignInManager.SignOutAsync();
+        Navigation.NavigateTo("/", forceLoad: true);
+    }
+}

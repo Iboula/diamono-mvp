@@ -7,6 +7,7 @@
   <ItemGroup>
     <ProjectReference Include="../Diamono.Domain/Diamono.Domain.csproj" />
     <ProjectReference Include="../Diamono.Application/Diamono.Application.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
       <PrivateAssets>all</PrivateAssets>

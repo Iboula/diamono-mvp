@@ -1,7 +1,9 @@
 @page "/admin"
+@attribute [Authorize(Policy = Permissions.BookingsView)]
 @rendermode InteractiveServer
 @inject BookingApplicationService BookingService
 @inject BookingBlockApplicationService BlockService
+@inject IPermissionGuard PermissionGuard
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 
@@ -13,7 +15,10 @@
         <h1>Tableau de bord</h1>
     </div>
     <div class="admin-head-actions">
-        <a class="button ghost-dark" href="/admin/parametres">Parametres</a>
+        @if (canViewSettings)
+        {
+            <a class="button ghost-dark" href="/admin/parametres">Parametres</a>
+        }
         <a class="button primary" href="/reserve">+ Nouvelle reservation</a>
     </div>
 </section>
@@ -37,13 +42,18 @@
     </RadzenCard>
 </section>
 
+@if (canViewBlocks)
+{
 <RadzenCard class="admin-card admin-grid-card">
     <div class="card-title admin-card-title">
         <div>
             <h2>Blocages actifs</h2>
             <p>Maintenance, evenements municipaux et indisponibilites operationnelles.</p>
         </div>
-        <RadzenButton Icon="event_busy" Text="Bloquer le terrain" ButtonStyle="ButtonStyle.Primary" Click="@OpenBlockDialogAsync" />
+        @if (canManageBlocks)
+        {
+            <RadzenButton Icon="event_busy" Text="Bloquer le terrain" ButtonStyle="ButtonStyle.Primary" Click="@OpenBlockDialogAsync" />
+        }
     </div>
 
     <RadzenDataGrid TItem="BookingBlock" Data="@bookingBlocks" AllowPaging="true" PageSize="5" AllowSorting="true"
@@ -59,13 +69,21 @@
             <RadzenDataGridColumn TItem="BookingBlock" Property="Description" Title="Description" />
             <RadzenDataGridColumn TItem="BookingBlock" Title="Action" Width="180px" Sortable="false" Filterable="false">
                 <Template Context="block">
-                    <RadzenButton Size="ButtonSize.Small" Icon="block" Text="Annuler le blocage" ButtonStyle="ButtonStyle.Secondary"
-                                  Variant="Variant.Outlined" Click="@(() => CancelBlockAsync(block.Id))" />
+                    @if (canManageBlocks)
+                    {
+                        <RadzenButton Size="ButtonSize.Small" Icon="block" Text="Annuler le blocage" ButtonStyle="ButtonStyle.Secondary"
+                                      Variant="Variant.Outlined" Click="@(() => CancelBlockAsync(block.Id))" />
+                    }
+                    else
+                    {
+                        <span class="admin-readonly">Lecture seule</span>
+                    }
                 </Template>
             </RadzenDataGridColumn>
         </Columns>
     </RadzenDataGrid>
 </RadzenCard>
+}
 
 <RadzenCard class="admin-card admin-grid-card">
     <div class="card-title admin-card-title">
@@ -114,17 +132,30 @@
             <RadzenDataGridColumn TItem="Booking" Title="Actions" Sortable="false" Filterable="false" Width="230px">
                 <Template Context="booking">
                     <div class="admin-actions">
-                        @if (booking.Status == BookingStatus.PendingApproval)
+                        @{
+                            // Actions reellement offertes = statut autorise ET permission detenue.
+                            var showApprove = booking.Status == BookingStatus.PendingApproval && canApprove;
+                            var showReject = booking.Status == BookingStatus.PendingApproval && canReject;
+                            var showMarkPaid = booking.Status == BookingStatus.AwaitingPayment && canMarkPaid;
+                            var showCancel = booking.Status == BookingStatus.AwaitingPayment && canReject;
+                        }
+                        @if (showApprove)
                         {
                             <RadzenButton Size="ButtonSize.Small" Icon="check" Text="Approuver" ButtonStyle="ButtonStyle.Success" Click="@(() => ApproveAsync(booking.Id))" />
+                        }
+                        @if (showReject)
+                        {
                             <RadzenButton Size="ButtonSize.Small" Icon="close" Text="Refuser" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Outlined" Click="@(() => RejectAsync(booking.Id))" />
                         }
-                        else if (booking.Status == BookingStatus.AwaitingPayment)
+                        @if (showMarkPaid)
                         {
                             <RadzenButton Size="ButtonSize.Small" Icon="payments" Text="Marquer paye" ButtonStyle="ButtonStyle.Info" Click="@(() => MarkPaidAsync(booking.Id))" />
+                        }
+                        @if (showCancel)
+                        {
                             <RadzenButton Size="ButtonSize.Small" Icon="block" Text="Annuler" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Outlined" Click="@(() => CancelAsync(booking.Id))" />
                         }
-                        else
+                        @if (!showApprove && !showReject && !showMarkPaid && !showCancel)
                         {
                             <span class="admin-readonly">Lecture seule</span>
                         }
@@ -178,12 +209,33 @@
         new(BookingStatus.Cancelled, "Annulee")
     ];
 
-    protected override async Task OnInitializedAsync() => await LoadDashboardAsync();
+    // Evaluees via les policies (IPermissionGuard -> IAuthorizationService), jamais
+    // par un test sur le nom du role.
+    private bool canApprove;
+    private bool canReject;
+    private bool canMarkPaid;
+    private bool canViewBlocks;
+    private bool canManageBlocks;
+    private bool canViewSettings;
+
+    protected override async Task OnInitializedAsync()
+    {
+        canApprove = await PermissionGuard.HasPermissionAsync(Permissions.BookingsApprove);
+        canReject = await PermissionGuard.HasPermissionAsync(Permissions.BookingsReject);
+        canMarkPaid = await PermissionGuard.HasPermissionAsync(Permissions.PaymentsMarkPaid);
+        canViewBlocks = await PermissionGuard.HasPermissionAsync(Permissions.BookingBlocksView);
+        canManageBlocks = await PermissionGuard.HasPermissionAsync(Permissions.BookingBlocksManage);
+        canViewSettings = await PermissionGuard.HasPermissionAsync(Permissions.SettingsView);
+
+        await LoadDashboardAsync();
+    }
 
     private async Task LoadDashboardAsync()
     {
         bookings = [.. await BookingService.GetBackOfficeBookingsAsync()];
-        bookingBlocks = [.. await BlockService.GetBookingBlocksAsync()];
+        // Un Caissier n'a pas BookingBlocks.View : ne pas appeler le cas d'usage
+        // qui refuserait, plutot que de laisser remonter une erreur d'autorisation.
+        bookingBlocks = canViewBlocks ? [.. await BlockService.GetBookingBlocksAsync()] : [];
         activityOptions = [.. bookings.Select(x => x.ActivityType).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().OrderBy(x => x)];
         RefreshKpis();
         ApplyFilters();

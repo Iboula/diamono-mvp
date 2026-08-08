@@ -1,0 +1,94 @@
+@page "/login"
+@using System.ComponentModel.DataAnnotations
+@using Diamono.Infrastructure.Identity
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager Navigation
+
+@* Rendu statique serveur volontaire : la connexion doit ecrire un cookie sur la
+   reponse HTTP, ce qu'un circuit interactif ne peut pas faire. *@
+
+<PageTitle>Connexion — Diamono</PageTitle>
+
+<section class="page-hero compact">
+    <div class="eyebrow">BACKOFFICE</div>
+    <h1>Connexion.</h1>
+    <p>Espace reserve a la direction du Stade Diamono de Cambérène.</p>
+</section>
+
+<section class="auth-wrap">
+    <EditForm Model="Input" FormName="login" OnValidSubmit="LoginAsync" method="post" class="auth-form">
+        <DataAnnotationsValidator />
+
+        @if (error is not null)
+        {
+            <div class="alert error">@error</div>
+        }
+
+        <label>
+            Adresse e-mail
+            <InputText @bind-Value="Input.Email" type="email" autocomplete="username" placeholder="admin@diamono.local" />
+            <ValidationMessage For="() => Input.Email" />
+        </label>
+
+        <label>
+            Mot de passe
+            <InputText @bind-Value="Input.Password" type="password" autocomplete="current-password" />
+            <ValidationMessage For="() => Input.Password" />
+        </label>
+
+        <label class="auth-checkbox">
+            <InputCheckbox @bind-Value="Input.RememberMe" />
+            <span>Rester connecté sur cet appareil</span>
+        </label>
+
+        <button class="button primary" type="submit">Se connecter</button>
+    </EditForm>
+</section>
+
+@code {
+    [SupplyParameterFromForm]
+    private LoginInput Input { get; set; } = new();
+
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    private string? ReturnUrl { get; set; }
+
+    private string? error;
+
+    private async Task LoginAsync()
+    {
+        var result = await SignInManager.PasswordSignInAsync(
+            Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: true);
+
+        if (result.Succeeded)
+        {
+            // forceLoad : le cookie vient d'etre pose, on veut une requete complete.
+            Navigation.NavigateTo(SafeReturnUrl(), forceLoad: true);
+            return;
+        }
+
+        error = result.IsLockedOut
+            ? "Compte temporairement verrouillé après plusieurs échecs. Réessayez dans 15 minutes."
+            : "Adresse e-mail ou mot de passe incorrect.";
+    }
+
+    /// <summary>Anti open-redirect : seules les URL locales sont acceptées.</summary>
+    private string SafeReturnUrl()
+    {
+        if (string.IsNullOrWhiteSpace(ReturnUrl)) return "/admin";
+        if (!ReturnUrl.StartsWith('/') || ReturnUrl.StartsWith("//") || ReturnUrl.Contains(':')) return "/admin";
+        return ReturnUrl;
+    }
+
+    private sealed class LoginInput
+    {
+        [Required(ErrorMessage = "L'adresse e-mail est requise.")]
+        [EmailAddress(ErrorMessage = "Adresse e-mail invalide.")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Le mot de passe est requis.")]
+        public string Password { get; set; } = string.Empty;
+
+        public bool RememberMe { get; set; }
+    }
+}

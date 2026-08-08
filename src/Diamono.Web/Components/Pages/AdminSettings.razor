@@ -1,6 +1,8 @@
 @page "/admin/parametres"
+@attribute [Authorize(Policy = Permissions.SettingsView)]
 @rendermode InteractiveServer
 @inject StadiumSettingsApplicationService SettingsService
+@inject IPermissionGuard PermissionGuard
 @inject NotificationService NotificationService
 
 <PageTitle>Parametres - Diamono</PageTitle>
@@ -72,7 +74,14 @@
         </div>
 
         <div class="form-actions settings-actions">
-            <RadzenButton ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Primary" Icon="save" Text="Enregistrer les parametres" />
+            @if (canManageSettings)
+            {
+                <RadzenButton ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Primary" Icon="save" Text="Enregistrer les parametres" />
+            }
+            else
+            {
+                <span class="admin-readonly">Consultation seule — permission @Permissions.SettingsManage requise.</span>
+            }
         </div>
     </RadzenTemplateForm>
 </RadzenCard>
@@ -86,8 +95,11 @@
         "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"
     ];
 
+    private bool canManageSettings;
+
     protected override async Task OnInitializedAsync()
     {
+        canManageSettings = await PermissionGuard.HasPermissionAsync(Permissions.SettingsManage);
         var settings = await SettingsService.GetSettingsAsync();
         form = SettingsForm.From(settings);
     }

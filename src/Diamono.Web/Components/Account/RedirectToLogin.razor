@@ -1,0 +1,28 @@
+@inject NavigationManager Navigation
+
+@* Utilisateur anonyme sur une page protegee : envoi vers /login avec returnUrl.
+   Utilisateur authentifie mais sans la permission : page d'acces refuse. *@
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationState { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var isAuthenticated = false;
+        if (AuthenticationState is not null)
+        {
+            var state = await AuthenticationState;
+            isAuthenticated = state.User.Identity?.IsAuthenticated == true;
+        }
+
+        if (isAuthenticated)
+        {
+            Navigation.NavigateTo("/acces-refuse", forceLoad: false);
+            return;
+        }
+
+        var returnUrl = Navigation.ToBaseRelativePath(Navigation.Uri);
+        Navigation.NavigateTo($"/login?returnUrl=/{Uri.EscapeDataString(returnUrl).Replace("%2F", "/")}", forceLoad: false);
+    }
+}

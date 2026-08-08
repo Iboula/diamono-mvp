@@ -1,16 +1,20 @@
 using Diamono.Application.Abstractions;
 using Diamono.Domain.Bookings;
+using Diamono.Domain.Security;
 
 namespace Diamono.Application.Bookings;
 
 public sealed class BookingBlockApplicationService(
     IBookingBlockRepository blockRepository,
-    IBookingRepository bookingRepository)
+    IBookingRepository bookingRepository,
+    IPermissionGuard permissionGuard)
 {
     public async Task<BookingBlock> CreateBookingBlockAsync(
         CreateBookingBlockRequest request,
         CancellationToken cancellationToken = default)
     {
+        await permissionGuard.EnsurePermissionAsync(Permissions.BookingBlocksManage, cancellationToken);
+
         if (request.EndsAt <= request.StartsAt)
             throw new ArgumentException("La date de fin doit etre apres la date de debut.", nameof(request));
 
@@ -35,6 +39,8 @@ public sealed class BookingBlockApplicationService(
 
     public async Task CancelBookingBlockAsync(Guid blockId, CancellationToken cancellationToken = default)
     {
+        await permissionGuard.EnsurePermissionAsync(Permissions.BookingBlocksManage, cancellationToken);
+
         var block = await blockRepository.GetByIdAsync(blockId, cancellationToken)
             ?? throw new KeyNotFoundException("Blocage introuvable.");
 
@@ -43,5 +49,8 @@ public sealed class BookingBlockApplicationService(
     }
 
     public async Task<IReadOnlyList<BookingBlock>> GetBookingBlocksAsync(CancellationToken cancellationToken = default)
-        => await blockRepository.GetActiveAsync(cancellationToken);
+    {
+        await permissionGuard.EnsurePermissionAsync(Permissions.BookingBlocksView, cancellationToken);
+        return await blockRepository.GetActiveAsync(cancellationToken);
+    }
 }

@@ -1,4 +1,5 @@
 @inherits LayoutComponentBase
+@using Diamono.Infrastructure.Identity
 
 <div class="shell">
     <header class="topbar">
@@ -9,7 +10,17 @@
             <a href="/reserve">Réserver</a>
             <a href="/admin">Backoffice</a>
         </nav>
-        <a class="top-cta" href="/reserve">Réserver un créneau</a>
+        <AuthorizeView>
+            <Authorized>
+                <div class="auth-badge">
+                    <span class="auth-user">@DisplayName(context)</span>
+                    <a class="button ghost-dark auth-logout" href="/logout">Déconnexion</a>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                <a class="top-cta" href="/login">Connexion</a>
+            </NotAuthorized>
+        </AuthorizeView>
     </header>
     <main>@Body</main>
     <footer>
@@ -18,3 +29,10 @@
     </footer>
 </div>
 <RadzenComponents @rendermode="InteractiveServer" />
+
+@code {
+    private static string DisplayName(AuthenticationState state)
+        => state.User.FindFirst(ApplicationUserClaimsPrincipalFactory.DisplayNameClaimType)?.Value
+            ?? state.User.Identity?.Name
+            ?? "Utilisateur";
+}

@@ -22,8 +22,9 @@ public sealed class BookingApplicationServiceWorkflowTests
             lightingAmount: 5_000m,
             depositAmount: 25_000m);
 
+    // Ces tests portent sur le workflow, pas sur l'autorisation : garde permissif.
     private static BookingApplicationService Service(FakeBookingRepository repository) =>
-        new(repository, new FakeStadiumBookingSettingsRepository(), new MvpPricingPolicy());
+        new(repository, new FakeStadiumBookingSettingsRepository(), new MvpPricingPolicy(), FakePermissionGuard.AllowAll());
 
     [Fact]
     public async Task GetBackOfficeBookingsAsync_retourne_les_reservations_pour_le_tableau_de_bord()

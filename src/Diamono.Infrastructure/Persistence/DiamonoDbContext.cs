@@ -1,11 +1,15 @@
 using Diamono.Domain.Bookings;
 using Diamono.Domain.Facilities;
 using Diamono.Domain.Settings;
+using Diamono.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace Diamono.Infrastructure.Persistence;
 
-public sealed class DiamonoDbContext(DbContextOptions<DiamonoDbContext> options) : DbContext(options)
+public sealed class DiamonoDbContext(DbContextOptions<DiamonoDbContext> options)
+    : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>(options)
 {
     public DbSet<Resource> Resources => Set<Resource>();
     public DbSet<Booking> Bookings => Set<Booking>();
@@ -14,6 +18,22 @@ public sealed class DiamonoDbContext(DbContextOptions<DiamonoDbContext> options)
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Obligatoire : construit le modele Identity avant les entites metier.
+        base.OnModelCreating(modelBuilder);
+
+        // Noms alignes sur la convention snake_case deja utilisee par le schema metier.
+        modelBuilder.Entity<ApplicationUser>(b =>
+        {
+            b.ToTable("identity_users");
+            b.Property(x => x.DisplayName).HasMaxLength(160);
+        });
+        modelBuilder.Entity<ApplicationRole>(b => b.ToTable("identity_roles"));
+        modelBuilder.Entity<IdentityUserRole<Guid>>(b => b.ToTable("identity_user_roles"));
+        modelBuilder.Entity<IdentityUserClaim<Guid>>(b => b.ToTable("identity_user_claims"));
+        modelBuilder.Entity<IdentityUserLogin<Guid>>(b => b.ToTable("identity_user_logins"));
+        modelBuilder.Entity<IdentityUserToken<Guid>>(b => b.ToTable("identity_user_tokens"));
+        modelBuilder.Entity<IdentityRoleClaim<Guid>>(b => b.ToTable("identity_role_claims"));
+
         modelBuilder.Entity<Resource>(b =>
         {
             b.ToTable("resources");

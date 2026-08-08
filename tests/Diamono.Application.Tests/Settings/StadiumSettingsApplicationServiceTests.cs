@@ -29,7 +29,7 @@ public sealed class StadiumSettingsApplicationServiceTests
     [Fact]
     public async Task GetSettingsAsync_recupere_les_parametres()
     {
-        var service = new StadiumSettingsApplicationService(new FakeStadiumBookingSettingsRepository());
+        var service = new StadiumSettingsApplicationService(new FakeStadiumBookingSettingsRepository(), FakePermissionGuard.AllowAll());
 
         var settings = await service.GetSettingsAsync();
 
@@ -41,7 +41,7 @@ public sealed class StadiumSettingsApplicationServiceTests
     public async Task UpdateSettingsAsync_accepte_une_mise_a_jour_valide()
     {
         var repository = new FakeStadiumBookingSettingsRepository();
-        var service = new StadiumSettingsApplicationService(repository);
+        var service = new StadiumSettingsApplicationService(repository, FakePermissionGuard.AllowAll());
 
         var settings = await service.UpdateSettingsAsync(ValidUpdate());
 
@@ -53,7 +53,7 @@ public sealed class StadiumSettingsApplicationServiceTests
     [Fact]
     public async Task UpdateSettingsAsync_refuse_une_fermeture_avant_ou_egale_a_ouverture()
     {
-        var service = new StadiumSettingsApplicationService(new FakeStadiumBookingSettingsRepository());
+        var service = new StadiumSettingsApplicationService(new FakeStadiumBookingSettingsRepository(), FakePermissionGuard.AllowAll());
         var request = ValidUpdate() with { OpensAt = new TimeOnly(22, 0), ClosesAt = new TimeOnly(22, 0) };
 
         await Assert.ThrowsAsync<ArgumentException>(() => service.UpdateSettingsAsync(request));
@@ -62,7 +62,7 @@ public sealed class StadiumSettingsApplicationServiceTests
     [Fact]
     public async Task UpdateSettingsAsync_refuse_une_duree_max_inferieure_a_min()
     {
-        var service = new StadiumSettingsApplicationService(new FakeStadiumBookingSettingsRepository());
+        var service = new StadiumSettingsApplicationService(new FakeStadiumBookingSettingsRepository(), FakePermissionGuard.AllowAll());
         var request = ValidUpdate() with { MinimumDurationHours = 4, MaximumDurationHours = 2 };
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.UpdateSettingsAsync(request));
@@ -71,7 +71,7 @@ public sealed class StadiumSettingsApplicationServiceTests
     [Fact]
     public async Task UpdateSettingsAsync_refuse_un_tarif_negatif()
     {
-        var service = new StadiumSettingsApplicationService(new FakeStadiumBookingSettingsRepository());
+        var service = new StadiumSettingsApplicationService(new FakeStadiumBookingSettingsRepository(), FakePermissionGuard.AllowAll());
         var request = ValidUpdate() with { StandardHourlyRate = -1m };
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.UpdateSettingsAsync(request));
@@ -150,8 +150,9 @@ public sealed class StadiumSettingsApplicationServiceTests
     {
         var settings = StadiumBookingSettings.MvpDefaults();
         var repository = new FakeStadiumBookingSettingsRepository(settings);
-        var bookingService = new BookingApplicationService(new FakeBookingRepository(), repository, new MvpPricingPolicy());
-        var settingsService = new StadiumSettingsApplicationService(repository);
+        var bookingService = new BookingApplicationService(
+            new FakeBookingRepository(), repository, new MvpPricingPolicy(), FakePermissionGuard.AllowAll());
+        var settingsService = new StadiumSettingsApplicationService(repository, FakePermissionGuard.AllowAll());
 
         var before = await bookingService.QuoteAsync(At(16), At(18), CustomerCategory.Individual);
         await settingsService.UpdateSettingsAsync(ValidUpdate());
@@ -165,5 +166,6 @@ public sealed class StadiumSettingsApplicationServiceTests
         => new(
             new FakeBookingRepository(),
             new FakeStadiumBookingSettingsRepository(settings),
-            new MvpPricingPolicy());
+            new MvpPricingPolicy(),
+            FakePermissionGuard.AllowAll());
 }
