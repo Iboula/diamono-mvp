@@ -15,3 +15,4 @@
 | BR-009 | Paiement après approbation; délai cible 24 h. |
 | BR-010 | Réservation au maximum 60 jours à l'avance (à implémenter au sprint suivant). |
 | BR-011 | Un blocage maintenance/événement interdit les réservations qui se chevauchent. |
+| BR-012 | Un blocage operationnel ne peut pas chevaucher une reservation `PendingApproval`, `AwaitingPayment` ou `Confirmed`. |

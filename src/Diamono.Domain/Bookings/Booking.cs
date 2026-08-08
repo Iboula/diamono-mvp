@@ -42,9 +42,51 @@ public sealed class Booking
     public decimal TotalAmount => RentalAmount + LightingAmount + DepositAmount;
     public BookingStatus Status { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
+    public DateTimeOffset? ApprovedAt { get; private set; }
+    public DateTimeOffset? RejectedAt { get; private set; }
+    public DateTimeOffset? PaidAt { get; private set; }
+    public DateTimeOffset? CancelledAt { get; private set; }
+    public string? RejectionReason { get; private set; }
+    public string? CancellationReason { get; private set; }
 
-    public void Approve() => Status = BookingStatus.AwaitingPayment;
-    public void ConfirmPayment() => Status = BookingStatus.Confirmed;
-    public void Reject() => Status = BookingStatus.Rejected;
-    public void Cancel() => Status = BookingStatus.Cancelled;
+    public void Approve()
+    {
+        EnsureStatus(BookingStatus.PendingApproval, "Seule une reservation en attente d'approbation peut etre approuvee.");
+
+        Status = BookingStatus.AwaitingPayment;
+        ApprovedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void ConfirmPayment()
+    {
+        EnsureStatus(BookingStatus.AwaitingPayment, "Seule une reservation en attente de paiement peut etre marquee payee.");
+
+        Status = BookingStatus.Confirmed;
+        PaidAt = DateTimeOffset.UtcNow;
+    }
+
+    public void Reject(string reason)
+    {
+        EnsureStatus(BookingStatus.PendingApproval, "Seule une reservation en attente d'approbation peut etre rejetee.");
+        if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Le motif de rejet est requis.", nameof(reason));
+
+        Status = BookingStatus.Rejected;
+        RejectedAt = DateTimeOffset.UtcNow;
+        RejectionReason = reason.Trim();
+    }
+
+    public void Cancel(string reason)
+    {
+        EnsureStatus(BookingStatus.AwaitingPayment, "Seule une reservation en attente de paiement peut etre annulee.");
+        if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Le motif d'annulation est requis.", nameof(reason));
+
+        Status = BookingStatus.Cancelled;
+        CancelledAt = DateTimeOffset.UtcNow;
+        CancellationReason = reason.Trim();
+    }
+
+    private void EnsureStatus(BookingStatus expected, string message)
+    {
+        if (Status != expected) throw new InvalidOperationException(message);
+    }
 }

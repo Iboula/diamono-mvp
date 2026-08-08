@@ -1,0 +1,120 @@
+@page "/disponibilites"
+@rendermode InteractiveServer
+@inject AvailabilityApplicationService AvailabilityService
+
+<PageTitle>Disponibilités — Stade Diamono</PageTitle>
+
+<section class="page-hero compact">
+    <div class="eyebrow">DISPONIBILITÉS</div>
+    <h1>Le terrain, jour par jour.</h1>
+    <p>Terrain principal du Stade Diamono de Cambérène — ouverture de 08h à 23h, créneaux de 2 heures.</p>
+</section>
+
+<section class="availability-wrap">
+    <div class="day-nav">
+        <button type="button" class="button ghost-dark" @onclick="PreviousDayAsync" disabled="@(!CanGoBack)">‹ Jour précédent</button>
+        <div class="day-label">
+            <strong>@FormatDay(selectedDate)</strong>
+            <span>@(selectedDate == DateOnly.FromDateTime(DateTime.Today) ? "Aujourd'hui" : string.Empty)</span>
+        </div>
+        <button type="button" class="button ghost-dark" @onclick="NextDayAsync">Jour suivant ›</button>
+    </div>
+
+    @if (error is not null)
+    {
+        <div class="alert error">@error</div>
+    }
+    else if (slots is null)
+    {
+        <p class="muted">Chargement des créneaux…</p>
+    }
+    else if (slots.Count == 0)
+    {
+        <p class="muted">Aucun créneau proposé pour cette journée.</p>
+    }
+    else
+    {
+        <ul class="slot-list">
+            @foreach (var slot in slots)
+            {
+                <li class="slot @(slot.IsAvailable ? "free" : "busy")">
+                    <span class="slot-time">@FormatRange(slot)</span>
+                    <span class="slot-state">@(slot.IsAvailable ? "Disponible" : "Occupé")</span>
+                    @if (slot.IsAvailable)
+                    {
+                        <a class="button primary" href="@ReserveLink(slot)">Réserver</a>
+                    }
+                    else
+                    {
+                        <span class="slot-reason">@slot.UnavailableReason</span>
+                    }
+                </li>
+            }
+        </ul>
+
+        <p class="muted">
+            Un créneau affiché comme disponible reste une indication : la disponibilité définitive
+            est revérifiée au moment de l'envoi de la demande.
+        </p>
+    }
+</section>
+
+@code {
+    private static readonly CultureInfo Fr = CultureInfo.GetCultureInfo("fr-FR");
+
+    [SupplyParameterFromQuery(Name = "date")]
+    public string? DateQuery { get; set; }
+
+    private DateOnly selectedDate = DateOnly.FromDateTime(DateTime.Today);
+    private IReadOnlyList<AvailabilitySlot>? slots;
+    private string? error;
+
+    private bool CanGoBack => selectedDate > DateOnly.FromDateTime(DateTime.Today);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (DateOnly.TryParseExact(DateQuery, "yyyy-MM-dd", out var requested)
+            && requested >= DateOnly.FromDateTime(DateTime.Today))
+        {
+            selectedDate = requested;
+        }
+
+        await LoadAsync();
+    }
+
+    private Task PreviousDayAsync()
+    {
+        if (!CanGoBack) return Task.CompletedTask;
+        selectedDate = selectedDate.AddDays(-1);
+        return LoadAsync();
+    }
+
+    private Task NextDayAsync()
+    {
+        selectedDate = selectedDate.AddDays(1);
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        error = null;
+        slots = null;
+        try
+        {
+            slots = await AvailabilityService.GetDailyAvailabilityAsync(SeedData.MainPitchId, selectedDate);
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+    }
+
+    private static string FormatDay(DateOnly date)
+        => date.ToDateTime(TimeOnly.MinValue).ToString("dddd d MMMM yyyy", Fr);
+
+    private static string FormatRange(AvailabilitySlot slot)
+        => $"{slot.StartsAt:HH\\:mm} — {slot.EndsAt:HH\\:mm}";
+
+    private string ReserveLink(AvailabilitySlot slot)
+        => $"/reserve?date={selectedDate:yyyy-MM-dd}&start={slot.StartsAt.Hour}";
+}

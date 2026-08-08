@@ -1,4 +1,5 @@
 using Diamono.Domain.Facilities;
+using Diamono.Domain.Settings;
 using Microsoft.EntityFrameworkCore;
 
 namespace Diamono.Infrastructure.Persistence;
@@ -10,9 +11,19 @@ public static class SeedData
     public static async Task InitializeAsync(DiamonoDbContext db, CancellationToken cancellationToken = default)
     {
         await db.Database.EnsureCreatedAsync(cancellationToken);
-        if (await db.Resources.AnyAsync(cancellationToken)) return;
+        var settings = await db.StadiumBookingSettings
+            .FirstOrDefaultAsync(x => x.Id == StadiumBookingSettings.SingletonId, cancellationToken);
+        if (settings is null)
+        {
+            settings = StadiumBookingSettings.MvpDefaults();
+            db.StadiumBookingSettings.Add(settings);
+        }
 
-        db.Resources.Add(new Resource(MainPitchId, "Terrain principal - Stade Diamono", new TimeOnly(8, 0), new TimeOnly(23, 0)));
+        if (!await db.Resources.AnyAsync(cancellationToken))
+        {
+            db.Resources.Add(new Resource(MainPitchId, "Terrain principal - Stade Diamono", settings.OpensAt, settings.ClosesAt));
+        }
+
         await db.SaveChangesAsync(cancellationToken);
     }
 }

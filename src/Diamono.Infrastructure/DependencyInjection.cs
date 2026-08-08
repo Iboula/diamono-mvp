@@ -1,5 +1,7 @@
 using Diamono.Application.Abstractions;
+using Diamono.Application.Availability;
 using Diamono.Application.Bookings;
+using Diamono.Application.Settings;
 using Diamono.Domain.Pricing;
 using Diamono.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -17,7 +19,13 @@ public static class DependencyInjection
 
         services.AddDbContext<DiamonoDbContext>(options => options.UseNpgsql(connectionString));
         services.AddScoped<IBookingRepository, BookingRepository>();
+        services.AddScoped<IBookingBlockRepository, BookingBlockRepository>();
+        services.AddScoped<IStadiumBookingSettingsRepository, StadiumBookingSettingsRepository>();
+        services.AddScoped<IAvailabilityRepository, AvailabilityRepository>();
         services.AddScoped<BookingApplicationService>();
+        services.AddScoped<BookingBlockApplicationService>();
+        services.AddScoped<StadiumSettingsApplicationService>();
+        services.AddScoped<AvailabilityApplicationService>();
         services.AddSingleton<MvpPricingPolicy>();
         return services;
     }

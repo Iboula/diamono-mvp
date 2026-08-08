@@ -1,0 +1,164 @@
+@page "/admin/parametres"
+@rendermode InteractiveServer
+@inject StadiumSettingsApplicationService SettingsService
+@inject NotificationService NotificationService
+
+<PageTitle>Parametres - Diamono</PageTitle>
+
+<section class="admin-head">
+    <div>
+        <div class="eyebrow dark">BACKOFFICE - PARAMETRES</div>
+        <h1>Parametrage metier</h1>
+    </div>
+    <a class="button ghost-dark" href="/admin">Retour backoffice</a>
+</section>
+
+<RadzenCard class="admin-card settings-card">
+    <RadzenTemplateForm TItem="SettingsForm" Data="@form" Submit="@SaveAsync">
+        <div class="settings-grid">
+            <section>
+                <h2>Horaires</h2>
+                <RadzenStack Gap=".7rem">
+                    <RadzenLabel Text="Ouverture" />
+                    <RadzenDropDown @bind-Value="form.OpensAt" Data="@timeOptions" Style="width:100%" />
+                    <RadzenLabel Text="Fermeture" />
+                    <RadzenDropDown @bind-Value="form.ClosesAt" Data="@timeOptions" Style="width:100%" />
+                </RadzenStack>
+            </section>
+
+            <section>
+                <h2>Reservation</h2>
+                <RadzenStack Gap=".7rem">
+                    <RadzenLabel Text="Duree minimale (heures)" />
+                    <RadzenNumeric @bind-Value="form.MinimumDurationHours" Min="1" Style="width:100%" />
+                    <RadzenLabel Text="Duree maximale (heures)" />
+                    <RadzenNumeric @bind-Value="form.MaximumDurationHours" Min="1" Style="width:100%" />
+                    <RadzenLabel Text="Nombre max de jours a l'avance" />
+                    <RadzenNumeric @bind-Value="form.MaximumAdvanceBookingDays" Min="1" Style="width:100%" />
+                    <RadzenCheckBox @bind-Value="form.ApprovalRequired" />
+                    <RadzenLabel Text="Validation obligatoire" />
+                </RadzenStack>
+            </section>
+
+            <section>
+                <h2>Tarification</h2>
+                <RadzenStack Gap=".7rem">
+                    <RadzenLabel Text="Tarif standard" />
+                    <RadzenNumeric @bind-Value="form.StandardHourlyRate" Min="0" Format="n0" Style="width:100%" />
+                    <RadzenLabel Text="Tarif ASC Camberene" />
+                    <RadzenNumeric @bind-Value="form.LocalAscHourlyRate" Min="0" Format="n0" Style="width:100%" />
+                    <RadzenLabel Text="Caution" />
+                    <RadzenNumeric @bind-Value="form.DepositAmount" Min="0" Format="n0" Style="width:100%" />
+                </RadzenStack>
+            </section>
+
+            <section>
+                <h2>Eclairage</h2>
+                <RadzenStack Gap=".7rem">
+                    <RadzenLabel Text="Heure de debut" />
+                    <RadzenDropDown @bind-Value="form.LightingStartsAt" Data="@timeOptions" Style="width:100%" />
+                    <RadzenLabel Text="Tarif horaire" />
+                    <RadzenNumeric @bind-Value="form.LightingHourlyRate" Min="0" Format="n0" Style="width:100%" />
+                </RadzenStack>
+            </section>
+
+            <section>
+                <h2>Paiement</h2>
+                <RadzenStack Gap=".7rem">
+                    <RadzenLabel Text="Delai de paiement (heures)" />
+                    <RadzenNumeric @bind-Value="form.PaymentDeadlineHours" Min="1" Style="width:100%" />
+                </RadzenStack>
+            </section>
+        </div>
+
+        <div class="form-actions settings-actions">
+            <RadzenButton ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Primary" Icon="save" Text="Enregistrer les parametres" />
+        </div>
+    </RadzenTemplateForm>
+</RadzenCard>
+
+@code {
+    private SettingsForm form = new();
+    private readonly List<string> timeOptions =
+    [
+        "00:00", "01:00", "02:00", "03:00", "04:00", "05:00", "06:00", "07:00",
+        "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00",
+        "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var settings = await SettingsService.GetSettingsAsync();
+        form = SettingsForm.From(settings);
+    }
+
+    private async Task SaveAsync()
+    {
+        try
+        {
+            await SettingsService.UpdateSettingsAsync(new UpdateStadiumBookingSettingsRequest(
+                ParseTime(form.OpensAt),
+                ParseTime(form.ClosesAt),
+                form.MinimumDurationHours,
+                form.MaximumDurationHours,
+                form.StandardHourlyRate,
+                form.LocalAscHourlyRate,
+                form.LightingHourlyRate,
+                ParseTime(form.LightingStartsAt),
+                form.DepositAmount,
+                form.MaximumAdvanceBookingDays,
+                form.PaymentDeadlineHours,
+                form.ApprovalRequired));
+
+            Notify(NotificationSeverity.Success, "Parametres enregistres.");
+        }
+        catch (Exception ex)
+        {
+            Notify(NotificationSeverity.Error, ex.Message);
+        }
+    }
+
+    private void Notify(NotificationSeverity severity, string message)
+        => NotificationService.Notify(new NotificationMessage
+        {
+            Severity = severity,
+            Summary = severity == NotificationSeverity.Success ? "Succes" : "Erreur",
+            Detail = message,
+            Duration = 4500
+        });
+
+    private static TimeOnly ParseTime(string value) => TimeOnly.Parse(value);
+
+    private sealed class SettingsForm
+    {
+        public string OpensAt { get; set; } = "08:00";
+        public string ClosesAt { get; set; } = "23:00";
+        public int MinimumDurationHours { get; set; } = 2;
+        public int MaximumDurationHours { get; set; } = 6;
+        public decimal StandardHourlyRate { get; set; } = 25_000m;
+        public decimal LocalAscHourlyRate { get; set; } = 15_000m;
+        public decimal LightingHourlyRate { get; set; } = 5_000m;
+        public string LightingStartsAt { get; set; } = "19:00";
+        public decimal DepositAmount { get; set; } = 25_000m;
+        public int MaximumAdvanceBookingDays { get; set; } = 60;
+        public int PaymentDeadlineHours { get; set; } = 24;
+        public bool ApprovalRequired { get; set; } = true;
+
+        public static SettingsForm From(StadiumBookingSettings settings)
+            => new()
+            {
+                OpensAt = settings.OpensAt.ToString("HH:mm"),
+                ClosesAt = settings.ClosesAt.ToString("HH:mm"),
+                MinimumDurationHours = settings.MinimumDurationHours,
+                MaximumDurationHours = settings.MaximumDurationHours,
+                StandardHourlyRate = settings.StandardHourlyRate,
+                LocalAscHourlyRate = settings.LocalAscHourlyRate,
+                LightingHourlyRate = settings.LightingHourlyRate,
+                LightingStartsAt = settings.LightingStartsAt.ToString("HH:mm"),
+                DepositAmount = settings.DepositAmount,
+                MaximumAdvanceBookingDays = settings.MaximumAdvanceBookingDays,
+                PaymentDeadlineHours = settings.PaymentDeadlineHours,
+                ApprovalRequired = settings.ApprovalRequired
+            };
+    }
+}

@@ -7,5 +7,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Diamono.Domain.Tests/Diamono.Domain.Tests.csproj" />
+    <Project Path="tests/Diamono.Application.Tests/Diamono.Application.Tests.csproj" />
   </Folder>
 </Solution>
