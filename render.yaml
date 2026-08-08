@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: diamono-web-demo
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health/ready
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://+:8080
+      - key: DIAMONO_CONNECTION
+        sync: false
+      - key: DIAMONO_ADMIN_PASSWORD
+        sync: false

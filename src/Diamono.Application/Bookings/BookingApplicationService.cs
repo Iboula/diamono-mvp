@@ -1,7 +1,12 @@
 using Diamono.Application.Abstractions;
+using Diamono.Application.Audit;
+using Diamono.Application.Notifications;
+using Diamono.Domain.Audit;
 using Diamono.Domain.Bookings;
+using Diamono.Domain.Notifications;
 using Diamono.Domain.Pricing;
 using Diamono.Domain.Security;
+using Diamono.Domain.Settings;
 
 namespace Diamono.Application.Bookings;
 
@@ -9,7 +14,9 @@ public sealed class BookingApplicationService(
     IBookingRepository repository,
     IStadiumBookingSettingsRepository settingsRepository,
     MvpPricingPolicy pricing,
-    IPermissionGuard permissionGuard)
+    IPermissionGuard permissionGuard,
+    IAuditWriter auditWriter,
+    INotificationService notificationService)
 {
     public async Task<PriceQuote> QuoteAsync(
         DateTimeOffset startsAt,
@@ -36,6 +43,7 @@ public sealed class BookingApplicationService(
             quote.RentalAmount, quote.LightingAmount, quote.DepositAmount);
 
         await repository.AddAsync(booking, cancellationToken);
+        await NotifyBookingAsync(booking, NotificationTemplate.BookingCreated, settings, cancellationToken: cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
         return booking;
     }
@@ -50,7 +58,16 @@ public sealed class BookingApplicationService(
     {
         await permissionGuard.EnsurePermissionAsync(Permissions.BookingsApprove, cancellationToken);
         var booking = await GetRequiredBookingAsync(bookingId, cancellationToken);
+        var settings = await settingsRepository.GetAsync(cancellationToken);
+        var oldStatus = booking.Status;
         booking.Approve();
+        await AuditBookingStatusAsync(
+            AuditActions.BookingApproved,
+            booking,
+            oldStatus,
+            "Reservation approuvee.",
+            cancellationToken: cancellationToken);
+        await NotifyBookingAsync(booking, NotificationTemplate.BookingApproved, settings, cancellationToken: cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
     }
 
@@ -58,16 +75,27 @@ public sealed class BookingApplicationService(
     {
         await permissionGuard.EnsurePermissionAsync(Permissions.BookingsReject, cancellationToken);
         var booking = await GetRequiredBookingAsync(bookingId, cancellationToken);
+        var oldStatus = booking.Status;
         booking.Reject(reason);
+        await AuditBookingStatusAsync(
+            AuditActions.BookingRejected,
+            booking,
+            oldStatus,
+            "Reservation rejetee.",
+            new { reason = booking.RejectionReason },
+            cancellationToken);
+        await NotifyBookingAsync(
+            booking,
+            NotificationTemplate.BookingRejected,
+            reason: booking.RejectionReason,
+            cancellationToken: cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
     }
 
     public async Task MarkBookingAsPaidAsync(Guid bookingId, CancellationToken cancellationToken = default)
     {
         await permissionGuard.EnsurePermissionAsync(Permissions.PaymentsMarkPaid, cancellationToken);
-        var booking = await GetRequiredBookingAsync(bookingId, cancellationToken);
-        booking.ConfirmPayment();
-        await repository.SaveChangesAsync(cancellationToken);
+        throw new InvalidOperationException("Le paiement doit etre enregistre via PaymentApplicationService.");
     }
 
     // Hypothese assumee : l'annulation d'une reservation par le backoffice est une
@@ -77,11 +105,123 @@ public sealed class BookingApplicationService(
     {
         await permissionGuard.EnsurePermissionAsync(Permissions.BookingsReject, cancellationToken);
         var booking = await GetRequiredBookingAsync(bookingId, cancellationToken);
+        var oldStatus = booking.Status;
         booking.Cancel(reason);
+        await AuditBookingStatusAsync(
+            AuditActions.BookingCancelled,
+            booking,
+            oldStatus,
+            "Reservation annulee.",
+            new { reason = booking.CancellationReason },
+            cancellationToken);
+        await NotifyBookingAsync(
+            booking,
+            NotificationTemplate.BookingCancelled,
+            reason: booking.CancellationReason,
+            cancellationToken: cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<Booking> GetRequiredBookingAsync(Guid bookingId, CancellationToken cancellationToken)
         => await repository.GetByIdAsync(bookingId, cancellationToken)
             ?? throw new KeyNotFoundException("Reservation introuvable.");
+
+    private async Task AuditBookingStatusAsync(
+        string action,
+        Booking booking,
+        BookingStatus oldStatus,
+        string description,
+        object? metadata = null,
+        CancellationToken cancellationToken = default)
+        => await auditWriter.WriteAsync(new AuditWriteRequest(
+            action,
+            "Booking",
+            booking.Id.ToString(),
+            description,
+            OldValues: new { status = oldStatus.ToString() },
+            NewValues: new { status = booking.Status.ToString() },
+            Metadata: metadata is null
+                ? new { reference = booking.Reference }
+                : new { reference = booking.Reference, context = metadata }),
+            cancellationToken);
+
+    private async Task NotifyBookingAsync(
+        Booking booking,
+        NotificationTemplate template,
+        StadiumBookingSettings? settings = null,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        var content = BuildNotificationContent(booking, template, settings, reason);
+        await notificationService.NotifyAsync(new NotificationRequest(
+            booking.Id,
+            booking.Phone,
+            NotificationChannel.Sms,
+            template,
+            content.Subject,
+            content.Body,
+            content.Metadata),
+            cancellationToken);
+    }
+
+    private static NotificationContent BuildNotificationContent(
+        Booking booking,
+        NotificationTemplate template,
+        StadiumBookingSettings? settings,
+        string? reason)
+        => template switch
+        {
+            NotificationTemplate.BookingCreated => new(
+                "Demande recue",
+                $"Votre demande {booking.Reference} pour le Stade Diamono a bien ete recue. Elle est en attente de validation.",
+                BaseMetadata(booking)),
+            NotificationTemplate.BookingApproved => new(
+                "Demande approuvee",
+                $"Votre demande {booking.Reference} pour le Stade Diamono a ete approuvee. Le paiement doit etre effectue dans un delai de {PaymentDeadlineHours(settings)} h.",
+                BaseMetadata(booking, PaymentDeadlineHours(settings))),
+            NotificationTemplate.BookingRejected => new(
+                "Demande refusee",
+                $"Votre demande {booking.Reference} pour le Stade Diamono a ete refusee. Motif : {reason}.",
+                BaseMetadata(booking, rejectionReason: reason)),
+            NotificationTemplate.BookingMarkedPaid => new(
+                "Reservation confirmee",
+                $"Votre paiement pour la demande {booking.Reference} a ete enregistre. Votre reservation est confirmee.",
+                BaseMetadata(booking)),
+            NotificationTemplate.BookingCancelled => new(
+                "Reservation annulee",
+                $"Votre demande {booking.Reference} pour le Stade Diamono a ete annulee. Motif : {reason}.",
+                BaseMetadata(booking, cancellationReason: reason)),
+            NotificationTemplate.BookingPaymentReminder => new(
+                "Rappel de paiement",
+                $"Rappel : le paiement de votre demande {booking.Reference} pour le Stade Diamono est attendu sous {PaymentDeadlineHours(settings)} h.",
+                BaseMetadata(booking, PaymentDeadlineHours(settings))),
+            NotificationTemplate.BookingUpcomingReminder => new(
+                "Rappel de reservation",
+                $"Rappel : votre reservation {booking.Reference} au Stade Diamono est prevue le {booking.StartsAt:dd/MM/yyyy} a {booking.StartsAt:HH:mm}.",
+                BaseMetadata(booking)),
+            _ => throw new ArgumentOutOfRangeException(nameof(template), template, "Template de notification inconnu.")
+        };
+
+    private static int PaymentDeadlineHours(StadiumBookingSettings? settings)
+        => settings?.PaymentDeadlineHours
+            ?? throw new InvalidOperationException("Le delai de paiement doit venir du parametrage du stade.");
+
+    private static object BaseMetadata(
+        Booking booking,
+        int? paymentDeadlineHours = null,
+        string? rejectionReason = null,
+        string? cancellationReason = null)
+        => new
+        {
+            reference = booking.Reference,
+            status = booking.Status.ToString(),
+            startsAt = booking.StartsAt,
+            endsAt = booking.EndsAt,
+            amount = booking.TotalAmount,
+            paymentDeadlineHours,
+            rejectionReason,
+            cancellationReason
+        };
+
+    private sealed record NotificationContent(string Subject, string Body, object Metadata);
 }

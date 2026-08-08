@@ -48,12 +48,17 @@
 
 @code {
     [SupplyParameterFromForm]
-    private LoginInput Input { get; set; } = new();
+    private LoginInput Input { get; set; } = default!;
 
     [SupplyParameterFromQuery(Name = "returnUrl")]
     private string? ReturnUrl { get; set; }
 
     private string? error;
+
+    protected override void OnInitialized()
+    {
+        Input ??= new LoginInput();
+    }
 
     private async Task LoginAsync()
     {

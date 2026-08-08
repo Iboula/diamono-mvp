@@ -50,12 +50,57 @@ public sealed class RouteAuthorizationTests
     }
 
     [Fact]
+    public void Admin_reservations_exige_la_permission_Bookings_View()
+    {
+        var authorize = AuthorizeFor("/admin/reservations");
+
+        Assert.NotNull(authorize);
+        Assert.Equal(Permissions.BookingsView, authorize.Policy);
+    }
+
+    [Fact]
+    public void Admin_paiements_exige_la_permission_Payments_MarkPaid()
+    {
+        var authorize = AuthorizeFor("/admin/paiements");
+
+        Assert.NotNull(authorize);
+        Assert.Equal(Permissions.PaymentsMarkPaid, authorize.Policy);
+    }
+
+    [Fact]
     public void Admin_parametres_exige_la_permission_Settings_View()
     {
         var authorize = AuthorizeFor("/admin/parametres");
 
         Assert.NotNull(authorize);
         Assert.Equal(Permissions.SettingsView, authorize.Policy);
+    }
+
+    [Fact]
+    public void Admin_utilisateurs_exige_la_permission_Administration_Manage()
+    {
+        var authorize = AuthorizeFor("/admin/utilisateurs");
+
+        Assert.NotNull(authorize);
+        Assert.Equal(Permissions.AdministrationManage, authorize.Policy);
+    }
+
+    [Fact]
+    public void Admin_audit_exige_la_permission_Administration_Manage()
+    {
+        var authorize = AuthorizeFor("/admin/audit");
+
+        Assert.NotNull(authorize);
+        Assert.Equal(Permissions.AdministrationManage, authorize.Policy);
+    }
+
+    [Fact]
+    public void Admin_notifications_exige_la_permission_Administration_Manage()
+    {
+        var authorize = AuthorizeFor("/admin/notifications");
+
+        Assert.NotNull(authorize);
+        Assert.Equal(Permissions.AdministrationManage, authorize.Policy);
     }
 
     [Fact]

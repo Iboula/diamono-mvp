@@ -2,7 +2,7 @@
 
 ## Statut
 
-Accepté pour DIA-016B.
+Accepté pour DIA-016B et etendu par DIA-017.
 
 ## Contexte
 
@@ -85,21 +85,23 @@ Source de vérité unique : `Diamono.Domain.Security.PermissionMatrix`.
    DIA-016B ne prévoit pas de permission d'annulation. Plutôt que d'inventer une
    dixième permission, l'annulation est rattachée au refus, décision de même nature.
    Conséquence : un Caissier voit « Marquer payé » mais plus « Annuler ».
-2. **`Administration.Manage` n'est consommée par aucun écran** dans cette story. La
-   policy est déclarée pour que l'administration des comptes et des rôles (DIA-017+)
-   s'y branche sans redéfinir la matrice.
+2. **Administration des comptes.** DIA-017 consomme `Administration.Manage` pour
+   `/admin/utilisateurs` et pour tous les cas d'usage applicatifs de gestion des
+   comptes, sans redéfinir la matrice.
 
 ## Défense en profondeur
 
 Masquer un bouton n'est pas une sécurité. Trois barrières indépendantes :
 
-1. **Route** — `@attribute [Authorize(Policy = ...)]` sur `/admin` (`Bookings.View`)
-   et `/admin/parametres` (`Settings.View`). `AuthorizeRouteView` redirige les
+1. **Route** — `@attribute [Authorize(Policy = ...)]` sur `/admin` (`Bookings.View`),
+   `/admin/parametres` (`Settings.View`) et `/admin/utilisateurs`
+   (`Administration.Manage`). `AuthorizeRouteView` redirige les
    anonymes vers `/login?returnUrl=…` et les authentifiés sans droit vers
    `/acces-refuse`.
 2. **Cas d'usage** — chaque méthode sensible de `BookingApplicationService`,
-   `BookingBlockApplicationService` et `StadiumSettingsApplicationService` appelle
-   `IPermissionGuard.EnsurePermissionAsync` et lève `PermissionDeniedException`.
+   `BookingBlockApplicationService`, `StadiumSettingsApplicationService` et
+   `IUserAdministrationService` appelle `IPermissionGuard.EnsurePermissionAsync` et
+   lève `PermissionDeniedException`.
    C'est la barrière qui compte : elle vaut même si l'interface est contournée.
 3. **Interface** — les actions non autorisées ne sont pas rendues, pour éviter de
    proposer une opération qui échouerait.
@@ -127,6 +129,27 @@ dotnet user-secrets set DIAMONO_ADMIN_PASSWORD "<mot-de-passe-local>" --project 
 
 Politique de mot de passe : 12 caractères minimum, majuscule, minuscule, chiffre et
 caractère non alphanumérique; verrouillage 15 minutes après 5 échecs.
+
+## Administration des comptes DIA-017
+
+- La page `/admin/utilisateurs` est protégée par la policy `Administration.Manage`.
+  L'interface n'accorde jamais l'accès en testant directement le role `SuperAdmin`.
+- Razor orchestre uniquement les formulaires. Les opérations passent par
+  `IUserAdministrationService`, dont l'implementation Identity vit cote
+  Infrastructure.
+- Le formulaire MVP cree uniquement des comptes `Gestionnaire`, `Caissier` ou
+  `Lecteur`. La creation d'un autre `SuperAdmin` n'est pas exposee.
+- Un compte MVP porte un seul role fonctionnel. Lors d'un changement, les anciens
+  roles fonctionnels sont retires, le nouveau role est ajoute et le `SecurityStamp`
+  est renouvele.
+- La desactivation utilise `LockoutEnd` et renouvelle le `SecurityStamp`. Le compte
+  n'est jamais supprime physiquement.
+- Protections explicites : impossible de desactiver son propre compte SuperAdmin,
+  impossible de retirer son propre role SuperAdmin, impossible de supprimer le
+  dernier SuperAdmin actif.
+- Strategie de mot de passe initial : mot de passe temporaire genere cote serveur et
+  affiche une seule fois. Il n'est ni journalise ni stocke en clair. Un flux de reset
+  par token email reste hors scope MVP.
 
 ## Cookie de session
 

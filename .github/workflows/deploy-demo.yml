@@ -1,0 +1,124 @@
+name: Deploy demo
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy, for example a commit SHA or latest"
+        required: true
+        default: "latest"
+      demo_url:
+        description: "Public demo URL used by health and smoke checks"
+        required: true
+        default: "https://demo.stadediamono.sn"
+  push:
+    tags:
+      - "demo-*"
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: iboula/diamono-mvp
+
+jobs:
+  deploy:
+    name: Deploy to configurable demo host
+    runs-on: ubuntu-latest
+    environment: demo
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve deployment values
+        id: vars
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "image_tag=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+            echo "demo_url=${{ inputs.demo_url }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "image_tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "demo_url=${{ vars.DEMO_URL }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate deployment configuration
+        shell: bash
+        env:
+          DEMO_SSH_HOST: ${{ secrets.DEMO_SSH_HOST }}
+          DEMO_SSH_USER: ${{ secrets.DEMO_SSH_USER }}
+          DEMO_SSH_PRIVATE_KEY: ${{ secrets.DEMO_SSH_PRIVATE_KEY }}
+          DEMO_DEPLOY_PATH: ${{ vars.DEMO_DEPLOY_PATH }}
+          DEMO_URL: ${{ steps.vars.outputs.demo_url }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$DEMO_SSH_HOST"
+          test -n "$DEMO_SSH_USER"
+          test -n "$DEMO_SSH_PRIVATE_KEY"
+          test -n "$DEMO_DEPLOY_PATH"
+          test -n "$DEMO_URL"
+          test -n "$GHCR_USERNAME"
+          test -n "$GHCR_TOKEN"
+
+      - name: Install SSH key
+        shell: bash
+        env:
+          DEMO_SSH_PRIVATE_KEY: ${{ secrets.DEMO_SSH_PRIVATE_KEY }}
+          DEMO_SSH_HOST: ${{ secrets.DEMO_SSH_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEMO_SSH_PRIVATE_KEY" > ~/.ssh/demo_deploy_key
+          chmod 600 ~/.ssh/demo_deploy_key
+          ssh-keyscan -H "$DEMO_SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Copy deployment assets
+        shell: bash
+        env:
+          DEMO_SSH_HOST: ${{ secrets.DEMO_SSH_HOST }}
+          DEMO_SSH_USER: ${{ secrets.DEMO_SSH_USER }}
+          DEMO_DEPLOY_PATH: ${{ vars.DEMO_DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/demo_deploy_key "$DEMO_SSH_USER@$DEMO_SSH_HOST" "mkdir -p '$DEMO_DEPLOY_PATH'"
+          scp -i ~/.ssh/demo_deploy_key docker-compose.prod-like.yml "$DEMO_SSH_USER@$DEMO_SSH_HOST:$DEMO_DEPLOY_PATH/docker-compose.yml"
+
+      - name: Deploy image on demo host
+        shell: bash
+        env:
+          DEMO_SSH_HOST: ${{ secrets.DEMO_SSH_HOST }}
+          DEMO_SSH_USER: ${{ secrets.DEMO_SSH_USER }}
+          DEMO_DEPLOY_PATH: ${{ vars.DEMO_DEPLOY_PATH }}
+          DIAMONO_CONNECTION: ${{ secrets.DIAMONO_CONNECTION }}
+          DIAMONO_ADMIN_PASSWORD: ${{ secrets.DIAMONO_ADMIN_PASSWORD }}
+          DIAMONO_POSTGRES_PASSWORD: ${{ secrets.DIAMONO_POSTGRES_PASSWORD }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/demo_deploy_key "$DEMO_SSH_USER@$DEMO_SSH_HOST" \
+            "cd '$DEMO_DEPLOY_PATH' && \
+             echo '$GHCR_TOKEN' | docker login '${REGISTRY}' --username '$GHCR_USERNAME' --password-stdin && \
+             export DIAMONO_IMAGE='${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}' && \
+             export DIAMONO_CONNECTION='$DIAMONO_CONNECTION' && \
+             export DIAMONO_ADMIN_PASSWORD='$DIAMONO_ADMIN_PASSWORD' && \
+             export DIAMONO_POSTGRES_PASSWORD='$DIAMONO_POSTGRES_PASSWORD' && \
+             docker compose pull || true && \
+             docker compose up -d"
+
+      - name: Health gate and smoke test
+        shell: bash
+        env:
+          DEMO_URL: ${{ steps.vars.outputs.demo_url }}
+        run: |
+          set -euo pipefail
+          chmod +x scripts/smoke-demo.sh
+          scripts/smoke-demo.sh "$DEMO_URL"

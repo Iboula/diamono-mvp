@@ -1,0 +1,592 @@
+@page "/admin/reservations"
+@attribute [Authorize(Policy = Permissions.BookingsView)]
+@rendermode InteractiveServer
+@inject BookingApplicationService BookingService
+@inject PaymentApplicationService PaymentService
+@inject BookingBlockApplicationService BlockService
+@inject IPermissionGuard PermissionGuard
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<PageTitle>Reservations - Diamono</PageTitle>
+
+<section class="admin-head">
+    <div>
+        <div class="eyebrow dark">BACKOFFICE - RESERVATIONS</div>
+        <h1>Reservations</h1>
+    </div>
+    <div class="admin-head-actions">
+        @if (canViewSettings)
+        {
+            <a class="button ghost-dark" href="/admin/parametres">Parametres</a>
+        }
+        <a class="button ghost-dark" href="/admin">Dashboard</a>
+        <a class="button primary" href="/reserve">+ Nouvelle reservation</a>
+    </div>
+</section>
+
+<section class="admin-kpi-grid">
+    <RadzenCard class="admin-kpi-card">
+        <span>Demandes en attente</span>
+        <strong>@pendingApprovalCount</strong>
+    </RadzenCard>
+    <RadzenCard class="admin-kpi-card">
+        <span>Paiements attendus</span>
+        <strong>@awaitingPaymentCount</strong>
+    </RadzenCard>
+    <RadzenCard class="admin-kpi-card">
+        <span>Reservations confirmees</span>
+        <strong>@confirmedCount</strong>
+    </RadzenCard>
+    <RadzenCard class="admin-kpi-card">
+        <span>Recettes potentielles</span>
+        <strong>@FormatMoney(potentialRevenue)</strong>
+    </RadzenCard>
+</section>
+
+@if (canViewBlocks)
+{
+<RadzenCard class="admin-card admin-grid-card">
+    <div class="card-title admin-card-title">
+        <div>
+            <h2>Blocages actifs</h2>
+            <p>Maintenance, evenements municipaux et indisponibilites operationnelles.</p>
+        </div>
+        @if (canManageBlocks)
+        {
+            <RadzenButton Icon="event_busy" Text="Bloquer le terrain" ButtonStyle="ButtonStyle.Primary" Click="@OpenBlockDialogAsync" />
+        }
+    </div>
+
+    <RadzenDataGrid TItem="BookingBlock" Data="@bookingBlocks" AllowPaging="true" PageSize="5" AllowSorting="true"
+                    EmptyText="Aucun blocage actif.">
+        <Columns>
+            <RadzenDataGridColumn TItem="BookingBlock" Title="Date" Width="130px">
+                <Template Context="block">@block.StartsAt.ToString("dd/MM/yyyy")</Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="BookingBlock" Title="Heures" Width="140px">
+                <Template Context="block">@($"{block.StartsAt:HH:mm} - {block.EndsAt:HH:mm}")</Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="BookingBlock" Property="Reason" Title="Motif" Width="190px" />
+            <RadzenDataGridColumn TItem="BookingBlock" Property="Description" Title="Description" />
+            <RadzenDataGridColumn TItem="BookingBlock" Title="Action" Width="180px" Sortable="false" Filterable="false">
+                <Template Context="block">
+                    @if (canManageBlocks)
+                    {
+                        <RadzenButton Size="ButtonSize.Small" Icon="block" Text="Annuler le blocage" ButtonStyle="ButtonStyle.Secondary"
+                                      Variant="Variant.Outlined" Click="@(() => CancelBlockAsync(block.Id))" />
+                    }
+                    else
+                    {
+                        <span class="admin-readonly">Lecture seule</span>
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+</RadzenCard>
+}
+
+<RadzenCard class="admin-card admin-grid-card">
+    <div class="card-title admin-card-title">
+        <div>
+            <h2>Reservations</h2>
+            <p>Vue operationnelle du gestionnaire.</p>
+        </div>
+        <RadzenButton Icon="refresh" Text="Rafraichir" ButtonStyle="ButtonStyle.Light" Click="@LoadDashboardAsync" />
+    </div>
+
+    <div class="admin-filters">
+        <RadzenTextBox @bind-Value="searchText" Placeholder="Recherche" Change="@(_ => ApplyFilters())" Style="width:100%" />
+        <RadzenDatePicker @bind-Value="filterDate" DateFormat="dd/MM/yyyy" Placeholder="Date" Change="@(_ => ApplyFilters())" Style="width:100%" />
+        <RadzenDropDown @bind-Value="filterStatus" Data="@statusOptions" TextProperty="Text" ValueProperty="Value" Placeholder="Statut" Change="@(_ => ApplyFilters())" Style="width:100%" />
+        <RadzenDropDown @bind-Value="filterActivity" Data="@activityOptions" AllowClear="true" Placeholder="Type d'activite" Change="@(_ => ApplyFilters())" Style="width:100%" />
+    </div>
+
+    <RadzenDataGrid TItem="Booking" Data="@filteredBookings" AllowPaging="true" PageSize="10" AllowSorting="true"
+                    RowSelect="@OpenDetailsAsync" EmptyText="Aucune reservation ne correspond aux filtres.">
+        <Columns>
+            <RadzenDataGridColumn TItem="Booking" Property="Reference" Title="Reference" Width="140px">
+                <Template Context="booking">
+                    <strong>@booking.Reference</strong>
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="Booking" Property="CustomerName" Title="Client" Width="180px" />
+            <RadzenDataGridColumn TItem="Booking" Property="Phone" Title="Telephone" Width="150px" />
+            <RadzenDataGridColumn TItem="Booking" Title="Date" Width="120px">
+                <Template Context="booking">@booking.StartsAt.ToString("dd/MM/yyyy")</Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="Booking" Title="Debut" Width="90px">
+                <Template Context="booking">@booking.StartsAt.ToString("HH:mm")</Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="Booking" Title="Fin" Width="90px">
+                <Template Context="booking">@booking.EndsAt.ToString("HH:mm")</Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="Booking" Property="ActivityType" Title="Activite" Width="150px" />
+            <RadzenDataGridColumn TItem="Booking" Title="Montant" Width="130px">
+                <Template Context="booking">@FormatMoney(booking.TotalAmount)</Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="Booking" Title="Statut" Width="170px">
+                <Template Context="booking">
+                    <RadzenBadge BadgeStyle="@BadgeStyleForStatus(booking.Status)" Text="@StatusLabel(booking.Status)" />
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="Booking" Title="Actions" Sortable="false" Filterable="false" Width="230px">
+                <Template Context="booking">
+                    <div class="admin-actions">
+                        @{
+                            // Actions reellement offertes = statut autorise ET permission detenue.
+                            var showApprove = booking.Status == BookingStatus.PendingApproval && canApprove;
+                            var showReject = booking.Status == BookingStatus.PendingApproval && canReject;
+                            var showMarkPaid = booking.Status == BookingStatus.AwaitingPayment && canMarkPaid;
+                            var showCancel = booking.Status == BookingStatus.AwaitingPayment && canReject;
+                        }
+                        @if (showApprove)
+                        {
+                            <RadzenButton Size="ButtonSize.Small" Icon="check" Text="Approuver" ButtonStyle="ButtonStyle.Success" Click="@(() => ApproveAsync(booking.Id))" />
+                        }
+                        @if (showReject)
+                        {
+                            <RadzenButton Size="ButtonSize.Small" Icon="close" Text="Refuser" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Outlined" Click="@(() => RejectAsync(booking.Id))" />
+                        }
+                        @if (showMarkPaid)
+                        {
+                            <RadzenButton Size="ButtonSize.Small" Icon="payments" Text="Enregistrer paiement" ButtonStyle="ButtonStyle.Info" Click="@(() => OpenPaymentDialogAsync(booking))" />
+                        }
+                        @if (showCancel)
+                        {
+                            <RadzenButton Size="ButtonSize.Small" Icon="block" Text="Annuler" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Outlined" Click="@(() => CancelAsync(booking.Id))" />
+                        }
+                        @if (paidPaymentByBookingId.TryGetValue(booking.Id, out var paidPaymentId))
+                        {
+                            <a class="button ghost-dark" href="@ReceiptUrl(paidPaymentId)" target="_blank">Reçu</a>
+                        }
+                        @if (!showApprove && !showReject && !showMarkPaid && !showCancel && !paidPaymentByBookingId.ContainsKey(booking.Id))
+                        {
+                            <span class="admin-readonly">Lecture seule</span>
+                        }
+                    </div>
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+</RadzenCard>
+
+@code {
+    private List<Booking> bookings = [];
+    private List<Booking> filteredBookings = [];
+    private List<BookingBlock> bookingBlocks = [];
+    private List<string> activityOptions = [];
+    private string? searchText;
+    private DateTime? filterDate;
+    private BookingStatus? filterStatus;
+    private string? filterActivity;
+    private string actionReason = string.Empty;
+    private PaymentForm paymentForm = new();
+    private Dictionary<Guid, Guid> paidPaymentByBookingId = [];
+    private int pendingApprovalCount;
+    private int awaitingPaymentCount;
+    private int confirmedCount;
+    private decimal potentialRevenue;
+    private BlockForm blockForm = new();
+
+    private readonly List<BlockTypeOption> blockTypeOptions =
+    [
+        new(BookingBlockType.Maintenance, "Maintenance pelouse"),
+        new(BookingBlockType.Works, "Travaux"),
+        new(BookingBlockType.Cleaning, "Nettoyage"),
+        new(BookingBlockType.OfficialMatch, "Match officiel"),
+        new(BookingBlockType.MunicipalEvent, "Activite municipale"),
+        new(BookingBlockType.TechnicalIssue, "Indisponibilite technique"),
+        new(BookingBlockType.Other, "Autre")
+    ];
+
+    private readonly List<string> timeOptions =
+    [
+        "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00",
+        "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"
+    ];
+
+    private readonly List<PaymentMethodOption> paymentMethodOptions =
+    [
+        new(PaymentMethod.Cash, "Especes"),
+        new(PaymentMethod.MobileMoney, "Mobile Money"),
+        new(PaymentMethod.BankTransfer, "Virement")
+    ];
+
+    private readonly List<StatusOption> statusOptions =
+    [
+        new(null, "Tous les statuts"),
+        new(BookingStatus.PendingApproval, "En attente"),
+        new(BookingStatus.AwaitingPayment, "Paiement attendu"),
+        new(BookingStatus.Confirmed, "Confirmee"),
+        new(BookingStatus.Rejected, "Refusee"),
+        new(BookingStatus.Cancelled, "Annulee")
+    ];
+
+    // Evaluees via les policies (IPermissionGuard -> IAuthorizationService), jamais
+    // par un test sur le nom du role.
+    private bool canApprove;
+    private bool canReject;
+    private bool canMarkPaid;
+    private bool canViewBlocks;
+    private bool canManageBlocks;
+    private bool canViewSettings;
+
+    protected override async Task OnInitializedAsync()
+    {
+        canApprove = await PermissionGuard.HasPermissionAsync(Permissions.BookingsApprove);
+        canReject = await PermissionGuard.HasPermissionAsync(Permissions.BookingsReject);
+        canMarkPaid = await PermissionGuard.HasPermissionAsync(Permissions.PaymentsMarkPaid);
+        canViewBlocks = await PermissionGuard.HasPermissionAsync(Permissions.BookingBlocksView);
+        canManageBlocks = await PermissionGuard.HasPermissionAsync(Permissions.BookingBlocksManage);
+        canViewSettings = await PermissionGuard.HasPermissionAsync(Permissions.SettingsView);
+
+        await LoadDashboardAsync();
+    }
+
+    private async Task LoadDashboardAsync()
+    {
+        bookings = [.. await BookingService.GetBackOfficeBookingsAsync()];
+        paidPaymentByBookingId = canMarkPaid
+            ? (await PaymentService.GetBackOfficePaymentsAsync())
+                .Where(x => x.Status == PaymentStatus.Paid)
+                .GroupBy(x => x.BookingId)
+                .ToDictionary(x => x.Key, x => x.OrderByDescending(payment => payment.PaidAt ?? payment.CreatedAt).First().Id)
+            : [];
+        // Un Caissier n'a pas BookingBlocks.View : ne pas appeler le cas d'usage
+        // qui refuserait, plutot que de laisser remonter une erreur d'autorisation.
+        bookingBlocks = canViewBlocks ? [.. await BlockService.GetBookingBlocksAsync()] : [];
+        activityOptions = [.. bookings.Select(x => x.ActivityType).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().OrderBy(x => x)];
+        RefreshKpis();
+        ApplyFilters();
+    }
+
+    private void RefreshKpis()
+    {
+        pendingApprovalCount = bookings.Count(x => x.Status == BookingStatus.PendingApproval);
+        awaitingPaymentCount = bookings.Count(x => x.Status == BookingStatus.AwaitingPayment);
+        confirmedCount = bookings.Count(x => x.Status == BookingStatus.Confirmed);
+        potentialRevenue = bookings
+            .Where(x => x.Status is BookingStatus.PendingApproval or BookingStatus.AwaitingPayment or BookingStatus.Confirmed)
+            .Sum(x => x.TotalAmount);
+    }
+
+    private void ApplyFilters()
+    {
+        var query = bookings.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(searchText))
+        {
+            var term = searchText.Trim();
+            query = query.Where(x =>
+                x.Reference.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                x.CustomerName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                x.Phone.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                x.ActivityType.Contains(term, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (filterDate is not null)
+        {
+            var date = DateOnly.FromDateTime(filterDate.Value);
+            query = query.Where(x => DateOnly.FromDateTime(x.StartsAt.DateTime) == date);
+        }
+
+        if (filterStatus is not null)
+        {
+            query = query.Where(x => x.Status == filterStatus);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filterActivity))
+        {
+            query = query.Where(x => x.ActivityType == filterActivity);
+        }
+
+        filteredBookings = [.. query];
+    }
+
+    private async Task ApproveAsync(Guid bookingId)
+        => await RunActionAsync(() => BookingService.ApproveBookingAsync(bookingId), "Reservation approuvee.");
+
+    private async Task OpenPaymentDialogAsync(Booking booking)
+    {
+        paymentForm = new PaymentForm
+        {
+            BookingId = booking.Id,
+            Amount = booking.TotalAmount,
+            Method = PaymentMethod.Cash
+        };
+
+        var result = await DialogService.OpenAsync(
+            "Enregistrer paiement",
+            dialog => @<RadzenStack Gap="1rem">
+                <div class="admin-detail-grid">
+                    <div class="admin-detail-item"><span>Reservation</span><strong>@booking.Reference</strong></div>
+                    <div class="admin-detail-item"><span>Client</span><strong>@booking.CustomerName</strong></div>
+                    <div class="admin-detail-item"><span>Montant attendu</span><strong>@FormatMoney(paymentForm.Amount)</strong></div>
+                    <RadzenStack Gap=".35rem" class="admin-block-wide">
+                        <RadzenLabel Text="Methode" />
+                        <RadzenDropDown @bind-Value="paymentForm.Method" Data="@paymentMethodOptions" TextProperty="Text" ValueProperty="Value" Style="width:100%" />
+                    </RadzenStack>
+                </div>
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap=".5rem">
+                    <RadzenButton Text="Retour" ButtonStyle="ButtonStyle.Light" Click="@(() => dialog.Close(false))" />
+                    <RadzenButton Text="Enregistrer" Icon="payments" ButtonStyle="ButtonStyle.Primary" Click="@(() => dialog.Close(true))" />
+                </RadzenStack>
+            </RadzenStack>,
+            new DialogOptions { Width = "560px", Resizable = false, Draggable = true });
+
+        if (result is true)
+        {
+            await RunActionAsync(
+                () => PaymentService.MarkCashPaymentAsPaidAsync(new MarkCashPaymentAsPaidRequest(paymentForm.BookingId, paymentForm.Method)),
+                "Paiement enregistre et reservation confirmee.");
+        }
+    }
+
+    private async Task RejectAsync(Guid bookingId)
+    {
+        var reason = await RequestReasonAsync("Refuser la reservation", "Motif de refus", "Refuse depuis le backoffice.");
+        if (string.IsNullOrWhiteSpace(reason)) return;
+
+        var confirmed = await DialogService.Confirm(
+            "Confirmer le refus de cette reservation ?",
+            "Refuser",
+            new ConfirmOptions { OkButtonText = "Refuser", CancelButtonText = "Retour" });
+
+        if (confirmed == true)
+        {
+            await RunActionAsync(() => BookingService.RejectBookingAsync(bookingId, reason), "Reservation refusee.");
+        }
+    }
+
+    private async Task CancelAsync(Guid bookingId)
+    {
+        var reason = await RequestReasonAsync("Annuler la reservation", "Motif d'annulation", "Annule depuis le backoffice.");
+        if (string.IsNullOrWhiteSpace(reason)) return;
+
+        var confirmed = await DialogService.Confirm(
+            "Confirmer l'annulation de cette reservation ?",
+            "Annuler",
+            new ConfirmOptions { OkButtonText = "Annuler", CancelButtonText = "Retour" });
+
+        if (confirmed == true)
+        {
+            await RunActionAsync(() => BookingService.CancelBookingAsync(bookingId, reason), "Reservation annulee.");
+        }
+    }
+
+    private async Task RunActionAsync(Func<Task> action, string successMessage)
+    {
+        try
+        {
+            await action();
+            Notify(NotificationSeverity.Success, successMessage);
+            await LoadDashboardAsync();
+        }
+        catch (Exception ex)
+        {
+            Notify(NotificationSeverity.Error, ex.Message);
+        }
+    }
+
+    private async Task OpenBlockDialogAsync()
+    {
+        blockForm = new BlockForm();
+
+        var result = await DialogService.OpenAsync(
+            "Bloquer le terrain",
+            dialog => @<RadzenStack Gap="1rem">
+                <div class="admin-block-form">
+                    <RadzenStack Gap=".35rem">
+                        <RadzenLabel Text="Date debut" />
+                        <RadzenDatePicker @bind-Value="blockForm.StartDate" DateFormat="dd/MM/yyyy" Style="width:100%" />
+                    </RadzenStack>
+                    <RadzenStack Gap=".35rem">
+                        <RadzenLabel Text="Heure debut" />
+                        <RadzenDropDown @bind-Value="blockForm.StartTime" Data="@timeOptions" Style="width:100%" />
+                    </RadzenStack>
+                    <RadzenStack Gap=".35rem">
+                        <RadzenLabel Text="Date fin" />
+                        <RadzenDatePicker @bind-Value="blockForm.EndDate" DateFormat="dd/MM/yyyy" Style="width:100%" />
+                    </RadzenStack>
+                    <RadzenStack Gap=".35rem">
+                        <RadzenLabel Text="Heure fin" />
+                        <RadzenDropDown @bind-Value="blockForm.EndTime" Data="@timeOptions" Style="width:100%" />
+                    </RadzenStack>
+                    <RadzenStack Gap=".35rem" class="admin-block-wide">
+                        <RadzenLabel Text="Motif" />
+                        <RadzenDropDown @bind-Value="blockForm.Type" Data="@blockTypeOptions" TextProperty="Text" ValueProperty="Value" Style="width:100%" />
+                    </RadzenStack>
+                    <RadzenStack Gap=".35rem" class="admin-block-wide">
+                        <RadzenLabel Text="Description facultative" />
+                        <RadzenTextArea @bind-Value="blockForm.Description" Rows="3" Style="width:100%" />
+                    </RadzenStack>
+                </div>
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap=".5rem">
+                    <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => dialog.Close(false))" />
+                    <RadzenButton Text="Bloquer le terrain" Icon="event_busy" ButtonStyle="ButtonStyle.Primary" Click="@(() => dialog.Close(true))" />
+                </RadzenStack>
+            </RadzenStack>,
+            new DialogOptions { Width = "720px", Resizable = false, Draggable = true });
+
+        if (result is true)
+        {
+            await CreateBlockAsync();
+        }
+    }
+
+    private async Task CreateBlockAsync()
+    {
+        var request = new CreateBookingBlockRequest(
+            SeedData.MainPitchId,
+            Combine(blockForm.StartDate, blockForm.StartTime),
+            Combine(blockForm.EndDate, blockForm.EndTime),
+            blockForm.Type,
+            blockForm.Description);
+
+        await RunActionAsync(async () => await BlockService.CreateBookingBlockAsync(request), "Terrain bloque avec succes.");
+    }
+
+    private async Task CancelBlockAsync(Guid blockId)
+    {
+        var confirmed = await DialogService.Confirm(
+            "Confirmer l'annulation de ce blocage ?",
+            "Annuler le blocage",
+            new ConfirmOptions { OkButtonText = "Annuler le blocage", CancelButtonText = "Retour" });
+
+        if (confirmed == true)
+        {
+            await RunActionAsync(() => BlockService.CancelBookingBlockAsync(blockId), "Blocage annule.");
+        }
+    }
+
+    private async Task<string?> RequestReasonAsync(string title, string label, string defaultValue)
+    {
+        actionReason = defaultValue;
+
+        var result = await DialogService.OpenAsync(
+            title,
+            dialog => @<RadzenStack Gap="1rem">
+                <RadzenLabel Text="@label" />
+                <RadzenTextArea @bind-Value="actionReason" Rows="4" Style="width:100%" />
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap=".5rem">
+                    <RadzenButton Text="Retour" ButtonStyle="ButtonStyle.Light" Click="@(() => dialog.Close(null))" />
+                    <RadzenButton Text="Continuer" ButtonStyle="ButtonStyle.Primary" Click="@(() => dialog.Close(actionReason))" />
+                </RadzenStack>
+            </RadzenStack>,
+            new DialogOptions { Width = "520px", Resizable = false, Draggable = true });
+
+        return result as string;
+    }
+
+    private async Task OpenDetailsAsync(Booking booking)
+    {
+        await DialogService.OpenAsync(
+            $"Reservation {booking.Reference}",
+            _ => @<RadzenStack Gap="1rem">
+                <div class="admin-detail-grid">
+                    <div class="admin-detail-item"><span>Reference</span><strong>@booking.Reference</strong></div>
+                    <div class="admin-detail-item"><span>Nom</span><strong>@booking.CustomerName</strong></div>
+                    <div class="admin-detail-item"><span>Telephone</span><strong>@booking.Phone</strong></div>
+                    <div class="admin-detail-item"><span>Categorie</span><strong>@CategoryLabel(booking.CustomerCategory)</strong></div>
+                    <div class="admin-detail-item"><span>Activite</span><strong>@booking.ActivityType</strong></div>
+                    <div class="admin-detail-item"><span>Commentaires</span><strong>@CommentsFor(booking)</strong></div>
+                    <div class="admin-detail-item"><span>Date</span><strong>@booking.StartsAt.ToString("dd/MM/yyyy")</strong></div>
+                    <div class="admin-detail-item"><span>Heure</span><strong>@($"{booking.StartsAt:HH:mm} - {booking.EndsAt:HH:mm}")</strong></div>
+                    <div class="admin-detail-item"><span>Montant</span><strong>@FormatMoney(booking.TotalAmount)</strong></div>
+                    <div class="admin-detail-item">
+                        <span>Statut</span>
+                        <RadzenBadge BadgeStyle="@BadgeStyleForStatus(booking.Status)" Text="@StatusLabel(booking.Status)" />
+                    </div>
+                    <div class="admin-detail-item"><span>ApprovedAt</span><strong>@FormatDateTime(booking.ApprovedAt)</strong></div>
+                    <div class="admin-detail-item"><span>RejectedAt</span><strong>@FormatDateTime(booking.RejectedAt)</strong></div>
+                    <div class="admin-detail-item"><span>PaidAt</span><strong>@FormatDateTime(booking.PaidAt)</strong></div>
+                    <div class="admin-detail-item"><span>CancelledAt</span><strong>@FormatDateTime(booking.CancelledAt)</strong></div>
+                </div>
+            </RadzenStack>,
+            new DialogOptions { Width = "760px", Resizable = true, Draggable = true });
+    }
+
+    private void Notify(NotificationSeverity severity, string message)
+        => NotificationService.Notify(new NotificationMessage
+        {
+            Severity = severity,
+            Summary = severity == NotificationSeverity.Success ? "Succes" : "Erreur",
+            Detail = message,
+            Duration = 4500
+        });
+
+    private static string FormatMoney(decimal amount) => $"{amount:N0} {Payment.MvpCurrency}";
+
+    private static string ReceiptUrl(Guid paymentId)
+        => $"/admin/paiements/{paymentId}/recu";
+
+    // RadzenDatePicker renvoie un DateTime de Kind=Local : le construire avec un offset zero
+    // leve ArgumentException sur toute machine hors UTC. On neutralise le Kind pour garder
+    // la meme convention que Reserve.razor et AvailabilityApplicationService (offset zero, Dakar UTC+0).
+    private static DateTimeOffset Combine(DateTime date, string time)
+        => new(DateTime.SpecifyKind(date.Date.Add(TimeSpan.Parse(time)), DateTimeKind.Unspecified), TimeSpan.Zero);
+
+    private static string FormatDateTime(DateTimeOffset? value)
+        => value?.ToString("dd/MM/yyyy HH:mm") ?? "-";
+
+    private static string CommentsFor(Booking booking)
+        => booking.RejectionReason ?? booking.CancellationReason ?? "-";
+
+    private static string CategoryLabel(CustomerCategory category) => category switch
+    {
+        CustomerCategory.Individual => "Particulier",
+        CustomerCategory.LocalAsc => "ASC de Cambérène",
+        CustomerCategory.Club => "Club",
+        CustomerCategory.Association => "Association",
+        CustomerCategory.School => "Ecole",
+        CustomerCategory.Company => "Entreprise",
+        _ => category.ToString()
+    };
+
+    private static string StatusLabel(BookingStatus status) => status switch
+    {
+        BookingStatus.PendingApproval => "En attente",
+        BookingStatus.AwaitingPayment => "En attente de paiement",
+        BookingStatus.Confirmed => "Confirmee",
+        BookingStatus.Rejected => "Refusee",
+        BookingStatus.Cancelled => "Annulee",
+        BookingStatus.Completed => "Terminee",
+        BookingStatus.NoShow => "Absence",
+        _ => status.ToString()
+    };
+
+    private static BadgeStyle BadgeStyleForStatus(BookingStatus status) => status switch
+    {
+        BookingStatus.PendingApproval => BadgeStyle.Warning,
+        BookingStatus.AwaitingPayment => BadgeStyle.Info,
+        BookingStatus.Confirmed => BadgeStyle.Success,
+        BookingStatus.Rejected => BadgeStyle.Danger,
+        BookingStatus.Cancelled => BadgeStyle.Secondary,
+        _ => BadgeStyle.Light
+    };
+
+    private sealed record StatusOption(BookingStatus? Value, string Text);
+
+    private sealed record BlockTypeOption(BookingBlockType Value, string Text);
+
+    private sealed record PaymentMethodOption(PaymentMethod Value, string Text);
+
+    private sealed class PaymentForm
+    {
+        public Guid BookingId { get; set; }
+        public decimal Amount { get; set; }
+        public PaymentMethod Method { get; set; } = PaymentMethod.Cash;
+    }
+
+    private sealed class BlockForm
+    {
+        public DateTime StartDate { get; set; } = DateTime.Today;
+        public string StartTime { get; set; } = "08:00";
+        public DateTime EndDate { get; set; } = DateTime.Today;
+        public string EndTime { get; set; } = "10:00";
+        public BookingBlockType Type { get; set; } = BookingBlockType.Maintenance;
+        public string Description { get; set; } = string.Empty;
+    }
+}

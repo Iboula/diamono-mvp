@@ -64,13 +64,13 @@ public sealed class PermissionClaimsTransformationTests
     }
 
     [Fact]
-    public void Le_type_de_claim_de_role_de_l_identite_est_respecte()
+    public async Task Le_type_de_claim_de_role_de_l_identite_est_respecte()
     {
         // Un fournisseur OIDC peut poser les roles sur un autre type de claim.
         var identity = new ClaimsIdentity("oidc", ClaimTypes.Name, roleType: "roles");
         identity.AddClaim(new Claim("roles", DiamonoRoles.Lecteur));
 
-        var principal = Transformation.TransformAsync(new ClaimsPrincipal(identity)).GetAwaiter().GetResult();
+        var principal = await Transformation.TransformAsync(new ClaimsPrincipal(identity));
 
         Assert.Contains(Permissions.BookingsView, principal.FindAll(Permissions.ClaimType).Select(x => x.Value));
     }

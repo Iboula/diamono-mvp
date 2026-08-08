@@ -1,4 +1,6 @@
 using Diamono.Application.Abstractions;
+using Diamono.Application.Audit;
+using Diamono.Domain.Audit;
 using Diamono.Domain.Bookings;
 using Diamono.Domain.Security;
 
@@ -7,7 +9,8 @@ namespace Diamono.Application.Bookings;
 public sealed class BookingBlockApplicationService(
     IBookingBlockRepository blockRepository,
     IBookingRepository bookingRepository,
-    IPermissionGuard permissionGuard)
+    IPermissionGuard permissionGuard,
+    IAuditWriter auditWriter)
 {
     public async Task<BookingBlock> CreateBookingBlockAsync(
         CreateBookingBlockRequest request,
@@ -33,6 +36,21 @@ public sealed class BookingBlockApplicationService(
             request.Description);
 
         await blockRepository.AddAsync(block, cancellationToken);
+        await auditWriter.WriteAsync(new AuditWriteRequest(
+            AuditActions.BookingBlockCreated,
+            "BookingBlock",
+            block.Id.ToString(),
+            "Blocage operationnel cree.",
+            NewValues: new
+            {
+                block.ResourceId,
+                block.StartsAt,
+                block.EndsAt,
+                type = block.Type.ToString(),
+                block.Reason,
+                block.Description
+            }),
+            cancellationToken);
         await blockRepository.SaveChangesAsync(cancellationToken);
         return block;
     }
@@ -44,7 +62,16 @@ public sealed class BookingBlockApplicationService(
         var block = await blockRepository.GetByIdAsync(blockId, cancellationToken)
             ?? throw new KeyNotFoundException("Blocage introuvable.");
 
+        var oldValues = new { isActive = block.IsActive, block.CancelledAt };
         block.Cancel();
+        await auditWriter.WriteAsync(new AuditWriteRequest(
+            AuditActions.BookingBlockCancelled,
+            "BookingBlock",
+            block.Id.ToString(),
+            "Blocage operationnel annule.",
+            OldValues: oldValues,
+            NewValues: new { isActive = block.IsActive, block.CancelledAt }),
+            cancellationToken);
         await blockRepository.SaveChangesAsync(cancellationToken);
     }
 

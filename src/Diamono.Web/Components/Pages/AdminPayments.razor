@@ -1,0 +1,172 @@
+@page "/admin/paiements"
+@attribute [Authorize(Policy = Permissions.PaymentsMarkPaid)]
+@rendermode InteractiveServer
+@inject PaymentApplicationService PaymentService
+@inject NotificationService NotificationService
+
+<PageTitle>Paiements - Diamono</PageTitle>
+
+<section class="admin-head">
+    <div>
+        <div class="eyebrow dark">BACKOFFICE - PAIEMENTS</div>
+        <h1>Paiements</h1>
+    </div>
+    <div class="admin-head-actions">
+        <a class="button ghost-dark" href="/admin">Dashboard</a>
+        <RadzenButton Icon="refresh" Text="Rafraichir" ButtonStyle="ButtonStyle.Light" Click="@LoadPaymentsAsync" />
+    </div>
+</section>
+
+<RadzenCard class="admin-card admin-grid-card">
+    <div class="card-title admin-card-title">
+        <div>
+            <h2>Historique des paiements</h2>
+            <p>Paiements manuels et statuts associes aux reservations.</p>
+        </div>
+    </div>
+
+    <div class="admin-filters audit-filters">
+        <RadzenDatePicker @bind-Value="filterDate" DateFormat="dd/MM/yyyy" Placeholder="Date" Change="@(_ => ApplyFilters())" Style="width:100%" />
+        <RadzenDropDown @bind-Value="filterMethod" Data="@methodOptions" TextProperty="Text" ValueProperty="Value" Placeholder="Methode" AllowClear="true" Change="@(_ => ApplyFilters())" Style="width:100%" />
+        <RadzenDropDown @bind-Value="filterStatus" Data="@statusOptions" TextProperty="Text" ValueProperty="Value" Placeholder="Statut" AllowClear="true" Change="@(_ => ApplyFilters())" Style="width:100%" />
+    </div>
+
+    <RadzenDataGrid TItem="PaymentReadModel" Data="@filteredPayments" AllowPaging="true" PageSize="15" AllowSorting="true"
+                    EmptyText="Aucun paiement ne correspond aux filtres.">
+        <Columns>
+            <RadzenDataGridColumn TItem="PaymentReadModel" Property="PaymentReference" Title="Reference paiement" Width="170px" />
+            <RadzenDataGridColumn TItem="PaymentReadModel" Property="BookingReference" Title="Reservation" Width="150px" />
+            <RadzenDataGridColumn TItem="PaymentReadModel" Property="CustomerName" Title="Client" Width="180px" />
+            <RadzenDataGridColumn TItem="PaymentReadModel" Title="Montant" Width="140px">
+                <Template Context="payment">@FormatMoney(payment.Amount, payment.Currency)</Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="PaymentReadModel" Title="Methode" Width="140px">
+                <Template Context="payment">@MethodLabel(payment.Method)</Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="PaymentReadModel" Title="Statut" Width="120px">
+                <Template Context="payment"><RadzenBadge BadgeStyle="@StatusStyle(payment.Status)" Text="@StatusLabel(payment.Status)" /></Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="PaymentReadModel" Title="Date" Width="170px">
+                <Template Context="payment">@PaymentDate(payment).ToString("dd/MM/yyyy HH:mm")</Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="PaymentReadModel" Title="Actions" Width="170px" Sortable="false" Filterable="false">
+                <Template Context="payment">
+                    @if (payment.Status == PaymentStatus.Paid)
+                    {
+                        <a class="button ghost-dark" href="@ReceiptUrl(payment.Id)" target="_blank">Télécharger reçu</a>
+                    }
+                    else
+                    {
+                        <span class="admin-readonly">Indisponible</span>
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+</RadzenCard>
+
+@code {
+    private IReadOnlyList<PaymentReadModel> payments = [];
+    private IReadOnlyList<PaymentReadModel> filteredPayments = [];
+    private DateTime? filterDate;
+    private PaymentMethod? filterMethod;
+    private PaymentStatus? filterStatus;
+
+    private readonly PaymentMethodOption[] methodOptions =
+    [
+        new(PaymentMethod.Cash, "Especes"),
+        new(PaymentMethod.MobileMoney, "Mobile Money"),
+        new(PaymentMethod.BankTransfer, "Virement")
+    ];
+
+    private readonly PaymentStatusOption[] statusOptions =
+    [
+        new(PaymentStatus.Pending, "En attente"),
+        new(PaymentStatus.Paid, "Paye"),
+        new(PaymentStatus.Failed, "Echec"),
+        new(PaymentStatus.Refunded, "Rembourse")
+    ];
+
+    protected override async Task OnInitializedAsync()
+        => await LoadPaymentsAsync();
+
+    private async Task LoadPaymentsAsync()
+    {
+        try
+        {
+            payments = await PaymentService.GetBackOfficePaymentsAsync();
+            ApplyFilters();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Erreur",
+                Detail = ex.Message,
+                Duration = 4500
+            });
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        var query = payments.AsEnumerable();
+
+        if (filterDate is not null)
+        {
+            var date = DateOnly.FromDateTime(filterDate.Value);
+            query = query.Where(x => DateOnly.FromDateTime(PaymentDate(x).Date) == date);
+        }
+
+        if (filterMethod is not null)
+            query = query.Where(x => x.Method == filterMethod);
+
+        if (filterStatus is not null)
+            query = query.Where(x => x.Status == filterStatus);
+
+        filteredPayments = [.. query];
+    }
+
+    private static DateTimeOffset PaymentDate(PaymentReadModel payment)
+        => payment.PaidAt ?? payment.CreatedAt;
+
+    private static string FormatMoney(decimal amount, string currency)
+        => $"{amount:N0} {currency}";
+
+    private static string ReceiptUrl(Guid paymentId)
+        => $"/admin/paiements/{paymentId}/recu";
+
+    private static string MethodLabel(PaymentMethod method)
+        => method switch
+        {
+            PaymentMethod.Cash => "Especes",
+            PaymentMethod.MobileMoney => "Mobile Money",
+            PaymentMethod.BankTransfer => "Virement",
+            _ => method.ToString()
+        };
+
+    private static string StatusLabel(PaymentStatus status)
+        => status switch
+        {
+            PaymentStatus.Pending => "En attente",
+            PaymentStatus.Paid => "Paye",
+            PaymentStatus.Failed => "Echec",
+            PaymentStatus.Refunded => "Rembourse",
+            _ => status.ToString()
+        };
+
+    private static BadgeStyle StatusStyle(PaymentStatus status)
+        => status switch
+        {
+            PaymentStatus.Pending => BadgeStyle.Warning,
+            PaymentStatus.Paid => BadgeStyle.Success,
+            PaymentStatus.Failed => BadgeStyle.Danger,
+            PaymentStatus.Refunded => BadgeStyle.Secondary,
+            _ => BadgeStyle.Light
+        };
+
+    private sealed record PaymentMethodOption(PaymentMethod Value, string Text);
+
+    private sealed record PaymentStatusOption(PaymentStatus Value, string Text);
+}

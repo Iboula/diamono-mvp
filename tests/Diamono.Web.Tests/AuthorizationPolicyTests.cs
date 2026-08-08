@@ -30,7 +30,7 @@ public sealed class AuthorizationPolicyTests
     }
 
     [Fact]
-    public void Une_policy_est_declaree_pour_chaque_permission()
+    public async Task Une_policy_est_declaree_pour_chaque_permission()
     {
         var provider = new ServiceCollection()
             .AddLogging()
@@ -39,7 +39,7 @@ public sealed class AuthorizationPolicyTests
             .GetRequiredService<IAuthorizationPolicyProvider>();
 
         foreach (var permission in Permissions.All)
-            Assert.NotNull(provider.GetPolicyAsync(permission).GetAwaiter().GetResult());
+            Assert.NotNull(await provider.GetPolicyAsync(permission));
     }
 
     [Fact]

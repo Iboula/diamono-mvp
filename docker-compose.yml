@@ -2,15 +2,15 @@ services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: diamono
-      POSTGRES_USER: diamono
-      POSTGRES_PASSWORD: diamono_dev
+      POSTGRES_DB: ${DIAMONO_DB_NAME:-diamono}
+      POSTGRES_USER: ${DIAMONO_DB_USER:-diamono}
+      POSTGRES_PASSWORD: ${DIAMONO_POSTGRES_PASSWORD:?DIAMONO_POSTGRES_PASSWORD must be set}
     ports:
       - "5432:5432"
     volumes:
       - diamono_pg:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U diamono -d diamono"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 10

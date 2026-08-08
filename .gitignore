@@ -30,6 +30,10 @@ coverage*.info
 *.snupkg
 
 # Divers
+.env
+.env.*
+!.env.example
+tmp/
 *.received.*
 .DS_Store
 Thumbs.db

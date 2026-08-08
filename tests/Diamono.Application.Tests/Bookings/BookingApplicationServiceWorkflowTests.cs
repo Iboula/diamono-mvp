@@ -1,4 +1,5 @@
 using Diamono.Application.Bookings;
+using Diamono.Domain.Notifications;
 using Diamono.Domain.Bookings;
 using Diamono.Domain.Pricing;
 using Xunit;
@@ -24,7 +25,8 @@ public sealed class BookingApplicationServiceWorkflowTests
 
     // Ces tests portent sur le workflow, pas sur l'autorisation : garde permissif.
     private static BookingApplicationService Service(FakeBookingRepository repository) =>
-        new(repository, new FakeStadiumBookingSettingsRepository(), new MvpPricingPolicy(), FakePermissionGuard.AllowAll());
+        new(repository, new FakeStadiumBookingSettingsRepository(), new MvpPricingPolicy(),
+            FakePermissionGuard.AllowAll(), new FakeAuditWriter(), new FakeNotificationService());
 
     [Fact]
     public async Task GetBackOfficeBookingsAsync_retourne_les_reservations_pour_le_tableau_de_bord()
@@ -52,17 +54,17 @@ public sealed class BookingApplicationServiceWorkflowTests
     }
 
     [Fact]
-    public async Task MarkBookingAsPaidAsync_passe_de_awaiting_payment_a_confirmed()
+    public async Task MarkBookingAsPaidAsync_direct_est_remplace_par_payment_service()
     {
         var booking = NewBooking();
         booking.Approve();
         var repository = new FakeBookingRepository(booking);
 
-        await Service(repository).MarkBookingAsPaidAsync(booking.Id);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Service(repository).MarkBookingAsPaidAsync(booking.Id));
 
-        Assert.Equal(BookingStatus.Confirmed, booking.Status);
-        Assert.NotNull(booking.PaidAt);
-        Assert.Equal(1, repository.SaveChangesCallCount);
+        Assert.Equal(BookingStatus.AwaitingPayment, booking.Status);
+        Assert.Null(booking.PaidAt);
+        Assert.Equal(0, repository.SaveChangesCallCount);
     }
 
     [Fact]

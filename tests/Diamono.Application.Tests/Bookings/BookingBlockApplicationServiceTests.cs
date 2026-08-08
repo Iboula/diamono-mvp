@@ -31,7 +31,7 @@ public sealed class BookingBlockApplicationServiceTests
         FakeBookingRepository bookingRepository)
         // Tests de regles de blocage : garde permissif, l'autorisation est couverte
         // par UseCasePermissionTests.
-        => new(blockRepository, bookingRepository, FakePermissionGuard.AllowAll());
+        => new(blockRepository, bookingRepository, FakePermissionGuard.AllowAll(), new FakeAuditWriter());
 
     [Fact]
     public async Task CreateBookingBlockAsync_cree_un_blocage_valide()

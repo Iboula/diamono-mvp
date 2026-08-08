@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${DIAMONO_DB_NAME:-diamono}
+      POSTGRES_USER: ${DIAMONO_DB_USER:-diamono}
+      POSTGRES_PASSWORD: ${DIAMONO_POSTGRES_PASSWORD:?DIAMONO_POSTGRES_PASSWORD must be set}
+    volumes:
+      - diamono_pg_prod_like:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  web:
+    image: ${DIAMONO_IMAGE:-diamono-web:local}
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      DIAMONO_CONNECTION: ${DIAMONO_CONNECTION:?DIAMONO_CONNECTION must be set}
+      DIAMONO_ADMIN_PASSWORD: ${DIAMONO_ADMIN_PASSWORD:?DIAMONO_ADMIN_PASSWORD must be set}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${DIAMONO_WEB_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health/ready || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  diamono_pg_prod_like:

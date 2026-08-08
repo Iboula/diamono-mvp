@@ -1,0 +1,70 @@
+# Render deployment
+
+Render doit construire le repository depuis la racine. Le Dockerfile attendu
+est versionne a la racine :
+
+```text
+./Dockerfile
+```
+
+## Parametres Render
+
+| Parametre | Valeur |
+|---|---|
+| Branch | `release/v0.2-demo` |
+| Root Directory | vide |
+| Dockerfile Path | `./Dockerfile` |
+| Docker Build Context Directory | `.` |
+| Health Check Path | `/health/ready` |
+| Pre-Deploy Command | vide |
+
+Le `Pre-Deploy Command` reste vide dans cette branche car aucun migrator separe
+n'est fourni. Les migrations EF Core sont une etape manuelle controlee avant le
+redeploiement. Ne pas utiliser `EnsureCreated`.
+
+## Variables d'environnement
+
+Obligatoires :
+
+- `ASPNETCORE_ENVIRONMENT=Production`
+- `ASPNETCORE_URLS=http://+:8080`
+- `DIAMONO_CONNECTION`
+- `DIAMONO_ADMIN_PASSWORD`
+
+`DIAMONO_CONNECTION` doit pointer vers PostgreSQL avec SSL si Render fournit
+une base managée qui l'exige. Ne pas exposer PostgreSQL publiquement.
+
+## Blueprint
+
+`render.yaml` fournit un blueprint minimal pour le web service Docker. Les
+secrets `DIAMONO_CONNECTION` et `DIAMONO_ADMIN_PASSWORD` sont marques
+`sync: false` afin d'etre saisis dans Render sans etre commités.
+
+## Flow de redeploiement
+
+1. Pousser `release/v0.2-demo`.
+2. Configurer Render sur cette branche.
+3. Verifier que Root Directory est vide et Dockerfile Path vaut `./Dockerfile`.
+4. Appliquer les migrations EF Core sur la base cible depuis un poste/runner
+   autorise.
+5. Lancer le redeploiement Render.
+6. Attendre `/health/ready = 200`.
+7. Lancer le smoke test :
+
+```bash
+scripts/smoke-demo.sh https://<render-url>
+```
+
+## Smoke manuel
+
+- page accueil;
+- disponibilites;
+- reserve;
+- login admin;
+- backoffice;
+- reservation;
+- approbation;
+- paiement;
+- recu PDF;
+- audit;
+- dashboard.

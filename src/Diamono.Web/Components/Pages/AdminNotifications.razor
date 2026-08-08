@@ -1,0 +1,131 @@
+@page "/admin/notifications"
+@attribute [Authorize(Policy = Permissions.AdministrationManage)]
+@rendermode InteractiveServer
+@inject INotificationReader NotificationReader
+@inject NotificationService NotificationService
+
+<PageTitle>Notifications - Diamono</PageTitle>
+
+<section class="admin-head">
+    <div>
+        <div class="eyebrow dark">BACKOFFICE - NOTIFICATIONS</div>
+        <h1>Notifications metier</h1>
+    </div>
+    <div class="admin-head-actions">
+        <a class="button ghost-dark" href="/admin">Retour backoffice</a>
+        <RadzenButton Icon="refresh" Text="Rafraichir" ButtonStyle="ButtonStyle.Light" Click="@LoadNotificationsAsync" />
+    </div>
+</section>
+
+<RadzenCard class="admin-card admin-grid-card">
+    <div class="card-title admin-card-title">
+        <div>
+            <h2>Historique des envois</h2>
+            <p>Journal des notifications creees par les cas d'usage de reservation.</p>
+        </div>
+    </div>
+
+    <div class="admin-filters audit-filters">
+        <RadzenDatePicker @bind-Value="filterDate" DateFormat="dd/MM/yyyy" Placeholder="Date" Change="@(_ => LoadNotificationsAsync())" Style="width:100%" />
+        <RadzenDropDown @bind-Value="filterStatus" Data="@statusOptions" Placeholder="Statut" AllowClear="true" Change="@(_ => LoadNotificationsAsync())" Style="width:100%" />
+        <RadzenDropDown @bind-Value="filterChannel" Data="@channelOptions" Placeholder="Canal" AllowClear="true" Change="@(_ => LoadNotificationsAsync())" Style="width:100%" />
+    </div>
+
+    <RadzenDataGrid TItem="NotificationReadModel" Data="@notifications" AllowPaging="true" PageSize="15" AllowSorting="true"
+                    EmptyText="Aucune notification ne correspond aux filtres.">
+        <Columns>
+            <RadzenDataGridColumn TItem="NotificationReadModel" Title="Date" Width="170px">
+                <Template Context="item">@item.CreatedAt.ToString("dd/MM/yyyy HH:mm")</Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="NotificationReadModel" Property="BookingReference" Title="Reservation" Width="160px" />
+            <RadzenDataGridColumn TItem="NotificationReadModel" Property="Recipient" Title="Destinataire" Width="210px" />
+            <RadzenDataGridColumn TItem="NotificationReadModel" Title="Canal" Width="110px">
+                <Template Context="item"><RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@ChannelLabel(item.Channel)" /></Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="NotificationReadModel" Title="Template" Width="210px">
+                <Template Context="item">@TemplateLabel(item.Template)</Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="NotificationReadModel" Title="Statut" Width="120px">
+                <Template Context="item"><RadzenBadge BadgeStyle="@StatusStyle(item.Status)" Text="@StatusLabel(item.Status)" /></Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="NotificationReadModel" Property="Error" Title="Erreur eventuelle" />
+        </Columns>
+    </RadzenDataGrid>
+</RadzenCard>
+
+@code {
+    private IReadOnlyList<NotificationReadModel> notifications = [];
+    private DateTime? filterDate;
+    private NotificationStatus? filterStatus;
+    private NotificationChannel? filterChannel;
+
+    private readonly NotificationStatus[] statusOptions = Enum.GetValues<NotificationStatus>();
+    private readonly NotificationChannel[] channelOptions = Enum.GetValues<NotificationChannel>();
+
+    protected override async Task OnInitializedAsync()
+        => await LoadNotificationsAsync();
+
+    private async Task LoadNotificationsAsync()
+    {
+        try
+        {
+            DateOnly? date = filterDate is null
+                ? null
+                : DateOnly.FromDateTime(DateTime.SpecifyKind(filterDate.Value, DateTimeKind.Unspecified));
+
+            notifications = await NotificationReader.GetNotificationsAsync(new NotificationQuery(
+                date,
+                filterStatus,
+                filterChannel));
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Erreur",
+                Detail = ex.Message,
+                Duration = 4500
+            });
+        }
+    }
+
+    private static string ChannelLabel(NotificationChannel channel)
+        => channel switch
+        {
+            NotificationChannel.Email => "Email",
+            NotificationChannel.Sms => "SMS",
+            _ => channel.ToString()
+        };
+
+    private static string TemplateLabel(NotificationTemplate template)
+        => template switch
+        {
+            NotificationTemplate.BookingCreated => "Demande recue",
+            NotificationTemplate.BookingApproved => "Demande approuvee",
+            NotificationTemplate.BookingRejected => "Demande refusee",
+            NotificationTemplate.BookingMarkedPaid => "Reservation confirmee",
+            NotificationTemplate.BookingCancelled => "Reservation annulee",
+            NotificationTemplate.BookingPaymentReminder => "Rappel paiement",
+            NotificationTemplate.BookingUpcomingReminder => "Rappel reservation",
+            _ => template.ToString()
+        };
+
+    private static string StatusLabel(NotificationStatus status)
+        => status switch
+        {
+            NotificationStatus.Pending => "En attente",
+            NotificationStatus.Sent => "Envoyee",
+            NotificationStatus.Failed => "Echec",
+            _ => status.ToString()
+        };
+
+    private static BadgeStyle StatusStyle(NotificationStatus status)
+        => status switch
+        {
+            NotificationStatus.Pending => BadgeStyle.Warning,
+            NotificationStatus.Sent => BadgeStyle.Success,
+            NotificationStatus.Failed => BadgeStyle.Danger,
+            _ => BadgeStyle.Light
+        };
+}

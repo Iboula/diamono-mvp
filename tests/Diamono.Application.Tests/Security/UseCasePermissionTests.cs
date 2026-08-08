@@ -1,7 +1,9 @@
 using Diamono.Application.Bookings;
+using Diamono.Application.Payments;
 using Diamono.Application.Security;
 using Diamono.Application.Settings;
 using Diamono.Domain.Bookings;
+using Diamono.Domain.Payments;
 using Diamono.Domain.Pricing;
 using Diamono.Domain.Security;
 using Xunit;
@@ -25,14 +27,21 @@ public sealed class UseCasePermissionTests
 
     private static BookingApplicationService BookingServiceFor(string role, FakeBookingRepository repository) =>
         new(repository, new FakeStadiumBookingSettingsRepository(), new MvpPricingPolicy(),
-            FakePermissionGuard.ForRoles(role));
+            FakePermissionGuard.ForRoles(role), new FakeAuditWriter(), new FakeNotificationService());
 
     private static BookingBlockApplicationService BlockServiceFor(string role, FakeBookingBlockRepository repository) =>
-        new(repository, new FakeBookingRepository(), FakePermissionGuard.ForRoles(role));
+        new(repository, new FakeBookingRepository(), FakePermissionGuard.ForRoles(role), new FakeAuditWriter());
+
+    private static PaymentApplicationService PaymentServiceFor(
+        string role,
+        FakePaymentRepository paymentRepository,
+        FakeBookingRepository bookingRepository)
+        => new(paymentRepository, bookingRepository, FakePermissionGuard.ForRoles(role),
+            new FakePaymentProvider(), new FakeAuditWriter(), new FakeNotificationService());
 
     private static StadiumSettingsApplicationService SettingsServiceFor(
         string role, FakeStadiumBookingSettingsRepository repository) =>
-        new(repository, FakePermissionGuard.ForRoles(role));
+        new(repository, FakePermissionGuard.ForRoles(role), new FakeAuditWriter());
 
     private static UpdateStadiumBookingSettingsRequest ValidUpdate() =>
         new(new TimeOnly(8, 0), new TimeOnly(23, 0), 2, 6, 30_000m, 15_000m, 5_000m,
@@ -97,7 +106,8 @@ public sealed class UseCasePermissionTests
         var repository = new FakeBookingRepository(booking);
 
         var error = await Assert.ThrowsAsync<PermissionDeniedException>(
-            () => BookingServiceFor(DiamonoRoles.Gestionnaire, repository).MarkBookingAsPaidAsync(booking.Id));
+            () => PaymentServiceFor(DiamonoRoles.Gestionnaire, new FakePaymentRepository(), repository)
+                .MarkCashPaymentAsPaidAsync(new MarkCashPaymentAsPaidRequest(booking.Id, PaymentMethod.Cash)));
 
         Assert.Equal(Permissions.PaymentsMarkPaid, error.Permission);
         Assert.Equal(BookingStatus.AwaitingPayment, booking.Status);
@@ -128,12 +138,14 @@ public sealed class UseCasePermissionTests
         var booking = NewBooking();
         booking.Approve();
         var repository = new FakeBookingRepository(booking);
+        var paymentRepository = new FakePaymentRepository();
 
-        await BookingServiceFor(DiamonoRoles.Caissier, repository).MarkBookingAsPaidAsync(booking.Id);
+        await PaymentServiceFor(DiamonoRoles.Caissier, paymentRepository, repository)
+            .MarkCashPaymentAsPaidAsync(new MarkCashPaymentAsPaidRequest(booking.Id, PaymentMethod.Cash));
 
         Assert.Equal(BookingStatus.Confirmed, booking.Status);
         Assert.NotNull(booking.PaidAt);
-        Assert.Equal(1, repository.SaveChangesCallCount);
+        Assert.Equal(1, paymentRepository.SaveChangesCallCount);
     }
 
     [Fact]
@@ -173,7 +185,8 @@ public sealed class UseCasePermissionTests
         var service = BookingServiceFor(DiamonoRoles.SuperAdmin, repository);
 
         await service.ApproveBookingAsync(booking.Id);
-        await service.MarkBookingAsPaidAsync(booking.Id);
+        await PaymentServiceFor(DiamonoRoles.SuperAdmin, new FakePaymentRepository(), repository)
+            .MarkCashPaymentAsPaidAsync(new MarkCashPaymentAsPaidRequest(booking.Id, PaymentMethod.Cash));
 
         Assert.Equal(BookingStatus.Confirmed, booking.Status);
     }
@@ -199,7 +212,7 @@ public sealed class UseCasePermissionTests
     {
         var service = new BookingApplicationService(
             new FakeBookingRepository(NewBooking()), new FakeStadiumBookingSettingsRepository(),
-            new MvpPricingPolicy(), FakePermissionGuard.Anonymous());
+            new MvpPricingPolicy(), FakePermissionGuard.Anonymous(), new FakeAuditWriter(), new FakeNotificationService());
 
         var error = await Assert.ThrowsAsync<PermissionDeniedException>(() => service.GetBackOfficeBookingsAsync());
 
@@ -212,7 +225,7 @@ public sealed class UseCasePermissionTests
         // Devis et creation de demande ne passent par aucune permission.
         var service = new BookingApplicationService(
             new FakeBookingRepository(), new FakeStadiumBookingSettingsRepository(),
-            new MvpPricingPolicy(), FakePermissionGuard.Anonymous());
+            new MvpPricingPolicy(), FakePermissionGuard.Anonymous(), new FakeAuditWriter(), new FakeNotificationService());
 
         var quote = await service.QuoteAsync(At(16), At(18), CustomerCategory.Individual);
         var booking = await service.CreateAsync(new CreateBookingRequest(

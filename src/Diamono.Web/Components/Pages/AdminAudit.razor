@@ -1,0 +1,166 @@
+@page "/admin/audit"
+@attribute [Authorize(Policy = Permissions.AdministrationManage)]
+@rendermode InteractiveServer
+@inject IAuditReader AuditReader
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<PageTitle>Audit - Diamono</PageTitle>
+
+<section class="admin-head">
+    <div>
+        <div class="eyebrow dark">BACKOFFICE - AUDIT</div>
+        <h1>Journal d'audit</h1>
+    </div>
+    <div class="admin-head-actions">
+        <a class="button ghost-dark" href="/admin">Retour backoffice</a>
+        <RadzenButton Icon="refresh" Text="Rafraichir" ButtonStyle="ButtonStyle.Light" Click="@LoadAuditAsync" />
+    </div>
+</section>
+
+<RadzenCard class="admin-card admin-grid-card">
+    <div class="card-title admin-card-title">
+        <div>
+            <h2>Actions sensibles</h2>
+            <p>Journal metier append-only des operations du backoffice.</p>
+        </div>
+    </div>
+
+    <div class="admin-filters audit-filters">
+        <RadzenDatePicker @bind-Value="filterDate" DateFormat="dd/MM/yyyy" Placeholder="Date" Change="@(_ => LoadAuditAsync())" Style="width:100%" />
+        <RadzenTextBox @bind-Value="filterUser" Placeholder="Utilisateur" Change="@(_ => LoadAuditAsync())" Style="width:100%" />
+        <RadzenDropDown @bind-Value="filterAction" Data="@actionOptions" Placeholder="Action" AllowClear="true" Change="@(_ => LoadAuditAsync())" Style="width:100%" />
+        <RadzenDropDown @bind-Value="filterEntityType" Data="@entityTypeOptions" Placeholder="Type objet" AllowClear="true" Change="@(_ => LoadAuditAsync())" Style="width:100%" />
+    </div>
+
+    <RadzenDataGrid TItem="AuditReadModel" Data="@entries" AllowPaging="true" PageSize="15" AllowSorting="true"
+                    RowSelect="@OpenDetailsAsync" EmptyText="Aucune entree d'audit ne correspond aux filtres.">
+        <Columns>
+            <RadzenDataGridColumn TItem="AuditReadModel" Title="Date/heure" Width="170px">
+                <Template Context="entry">@entry.OccurredAt.ToString("dd/MM/yyyy HH:mm:ss")</Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="AuditReadModel" Property="UserEmail" Title="Utilisateur" Width="240px" />
+            <RadzenDataGridColumn TItem="AuditReadModel" Property="Action" Title="Action" Width="190px">
+                <Template Context="entry"><RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@entry.Action" /></Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="AuditReadModel" Property="EntityType" Title="Type" Width="150px" />
+            <RadzenDataGridColumn TItem="AuditReadModel" Property="EntityId" Title="Objet" Width="230px" />
+            <RadzenDataGridColumn TItem="AuditReadModel" Property="Description" Title="Description" />
+        </Columns>
+    </RadzenDataGrid>
+</RadzenCard>
+
+@code {
+    private IReadOnlyList<AuditReadModel> entries = [];
+    private DateTime? filterDate;
+    private string? filterUser;
+    private string? filterAction;
+    private string? filterEntityType;
+
+    private readonly string[] actionOptions =
+    [
+        AuditActions.BookingApproved,
+        AuditActions.BookingRejected,
+        AuditActions.BookingMarkedPaid,
+        AuditActions.BookingCancelled,
+        AuditActions.PaymentCreated,
+        AuditActions.PaymentPaid,
+        AuditActions.PaymentFailed,
+        AuditActions.PaymentReceiptGenerated,
+        AuditActions.BookingBlockCreated,
+        AuditActions.BookingBlockCancelled,
+        AuditActions.SettingsUpdated,
+        AuditActions.UserCreated,
+        AuditActions.UserRoleChanged,
+        AuditActions.UserDisabled,
+        AuditActions.UserEnabled
+    ];
+
+    private readonly string[] entityTypeOptions =
+    [
+        "Booking",
+        "Payment",
+        "BookingBlock",
+        "StadiumBookingSettings",
+        "ApplicationUser"
+    ];
+
+    protected override async Task OnInitializedAsync()
+        => await LoadAuditAsync();
+
+    private async Task LoadAuditAsync()
+    {
+        try
+        {
+            DateOnly? date = filterDate is null
+                ? null
+                : DateOnly.FromDateTime(DateTime.SpecifyKind(filterDate.Value, DateTimeKind.Unspecified));
+
+            entries = await AuditReader.GetAuditEntriesAsync(new AuditQuery(
+                date,
+                filterUser,
+                filterAction,
+                filterEntityType));
+        }
+        catch (Exception ex)
+        {
+            Notify(NotificationSeverity.Error, ex.Message);
+        }
+    }
+
+    private async Task OpenDetailsAsync(AuditReadModel entry)
+    {
+        await DialogService.OpenAsync(
+            entry.Action,
+            _ => @<RadzenStack Gap="1rem">
+                <div class="admin-detail-grid">
+                    <div class="admin-detail-item"><span>Date/heure</span><strong>@entry.OccurredAt.ToString("dd/MM/yyyy HH:mm:ss")</strong></div>
+                    <div class="admin-detail-item"><span>Utilisateur</span><strong>@entry.UserEmail</strong></div>
+                    <div class="admin-detail-item"><span>Action</span><strong>@entry.Action</strong></div>
+                    <div class="admin-detail-item"><span>Objet</span><strong>@($"{entry.EntityType} / {entry.EntityId}")</strong></div>
+                    <div class="admin-detail-item admin-block-wide"><span>Description</span><strong>@entry.Description</strong></div>
+                </div>
+                <div class="audit-json-grid">
+                    <div>
+                        <span>Ancienne valeur</span>
+                        <pre>@FormatJson(entry.OldValuesJson)</pre>
+                    </div>
+                    <div>
+                        <span>Nouvelle valeur</span>
+                        <pre>@FormatJson(entry.NewValuesJson)</pre>
+                    </div>
+                    <div>
+                        <span>Metadonnees</span>
+                        <pre>@FormatJson(entry.MetadataJson)</pre>
+                    </div>
+                </div>
+            </RadzenStack>,
+            new DialogOptions { Width = "880px", Resizable = true, Draggable = true });
+    }
+
+    private void Notify(NotificationSeverity severity, string message)
+        => NotificationService.Notify(new NotificationMessage
+        {
+            Severity = severity,
+            Summary = severity == NotificationSeverity.Success ? "Succes" : "Erreur",
+            Detail = message,
+            Duration = 4500
+        });
+
+    private static string FormatJson(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return "Non renseigne";
+
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(json);
+            return System.Text.Json.JsonSerializer.Serialize(
+                document.RootElement,
+                new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        }
+        catch
+        {
+            return json;
+        }
+    }
+}

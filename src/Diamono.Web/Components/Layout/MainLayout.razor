@@ -1,4 +1,5 @@
 @inherits LayoutComponentBase
+@using Diamono.Domain.Security
 @using Diamono.Infrastructure.Identity
 
 <div class="shell">
@@ -8,7 +9,20 @@
             <a href="/">Accueil</a>
             <a href="/disponibilites">Disponibilités</a>
             <a href="/reserve">Réserver</a>
-            <a href="/admin">Backoffice</a>
+            <a href="/admin">Dashboard</a>
+            <a href="/admin/reservations">Reservations</a>
+            <AuthorizeView Policy="@Permissions.PaymentsMarkPaid">
+                <Authorized>
+                    <a href="/admin/paiements">Paiements</a>
+                </Authorized>
+            </AuthorizeView>
+            <AuthorizeView Policy="@Permissions.AdministrationManage">
+                <Authorized>
+                    <a href="/admin/utilisateurs">Utilisateurs</a>
+                    <a href="/admin/audit">Audit</a>
+                    <a href="/admin/notifications">Notifications</a>
+                </Authorized>
+            </AuthorizeView>
         </nav>
         <AuthorizeView>
             <Authorized>

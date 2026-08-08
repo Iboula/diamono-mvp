@@ -1,5 +1,8 @@
 using Diamono.Domain.Bookings;
+using Diamono.Domain.Audit;
 using Diamono.Domain.Facilities;
+using Diamono.Domain.Notifications;
+using Diamono.Domain.Payments;
 using Diamono.Domain.Settings;
 using Diamono.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
@@ -15,6 +18,9 @@ public sealed class DiamonoDbContext(DbContextOptions<DiamonoDbContext> options)
     public DbSet<Booking> Bookings => Set<Booking>();
     public DbSet<BookingBlock> BookingBlocks => Set<BookingBlock>();
     public DbSet<StadiumBookingSettings> StadiumBookingSettings => Set<StadiumBookingSettings>();
+    public DbSet<AuditEntry> AuditLogs => Set<AuditEntry>();
+    public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
+    public DbSet<Payment> Payments => Set<Payment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -47,6 +53,7 @@ public sealed class DiamonoDbContext(DbContextOptions<DiamonoDbContext> options)
             b.HasKey(x => x.Id);
             b.HasIndex(x => x.Reference).IsUnique();
             b.HasIndex(x => new { x.ResourceId, x.StartsAt, x.EndsAt });
+            b.HasIndex(x => new { x.StartsAt, x.EndsAt });
             b.Property(x => x.Reference).HasMaxLength(32).IsRequired();
             b.Property(x => x.CustomerName).HasMaxLength(160).IsRequired();
             b.Property(x => x.Phone).HasMaxLength(40).IsRequired();
@@ -61,6 +68,7 @@ public sealed class DiamonoDbContext(DbContextOptions<DiamonoDbContext> options)
             b.ToTable("booking_blocks");
             b.HasKey(x => x.Id);
             b.HasIndex(x => new { x.ResourceId, x.StartsAt, x.EndsAt });
+            b.HasIndex(x => new { x.StartsAt, x.EndsAt });
             b.Property(x => x.Reason).HasMaxLength(250).IsRequired();
             b.Property(x => x.Description).HasMaxLength(500);
             b.Property(x => x.CreatedBy).HasMaxLength(160);
@@ -73,6 +81,55 @@ public sealed class DiamonoDbContext(DbContextOptions<DiamonoDbContext> options)
             b.ToTable("stadium_booking_settings");
             b.HasKey(x => x.Id);
             b.Property(x => x.UpdatedBy).HasMaxLength(160);
+        });
+
+        modelBuilder.Entity<AuditEntry>(b =>
+        {
+            b.ToTable("audit_logs");
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => x.OccurredAt);
+            b.HasIndex(x => x.UserId);
+            b.HasIndex(x => new { x.EntityType, x.EntityId });
+            b.HasIndex(x => x.Action);
+            b.Property(x => x.UserId).HasMaxLength(160).IsRequired();
+            b.Property(x => x.UserEmail).HasMaxLength(256).IsRequired();
+            b.Property(x => x.Action).HasMaxLength(120).IsRequired();
+            b.Property(x => x.EntityType).HasMaxLength(120).IsRequired();
+            b.Property(x => x.EntityId).HasMaxLength(120).IsRequired();
+            b.Property(x => x.Description).HasMaxLength(500).IsRequired();
+        });
+
+        modelBuilder.Entity<NotificationLog>(b =>
+        {
+            b.ToTable("notification_logs");
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => x.CreatedAt);
+            b.HasIndex(x => x.BookingId);
+            b.HasIndex(x => x.Status);
+            b.HasIndex(x => x.Channel);
+            b.HasIndex(x => x.Template);
+            b.Property(x => x.Recipient).HasMaxLength(256).IsRequired();
+            b.Property(x => x.Subject).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Body).HasMaxLength(1200).IsRequired();
+            b.Property(x => x.Error).HasMaxLength(1000);
+        });
+
+        modelBuilder.Entity<Payment>(b =>
+        {
+            b.ToTable("payments");
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => x.BookingId);
+            b.HasIndex(x => x.Reference).IsUnique();
+            b.HasIndex(x => x.Status);
+            b.HasIndex(x => x.CreatedAt);
+            b.HasIndex(x => new { x.BookingId, x.Status })
+                .IsUnique()
+                .HasFilter("\"Status\" = 2");
+            b.Property(x => x.Reference).HasMaxLength(32).IsRequired();
+            b.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+            b.Property(x => x.Provider).HasMaxLength(80).IsRequired();
+            b.Property(x => x.ProviderTransactionId).HasMaxLength(160);
+            b.Property(x => x.Amount).HasPrecision(18, 2);
         });
     }
 }
