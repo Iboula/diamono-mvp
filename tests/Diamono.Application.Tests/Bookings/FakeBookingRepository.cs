@@ -19,6 +19,9 @@ internal sealed class FakeBookingRepository(params Booking[] bookings) : IBookin
     public Task<Booking?> GetByIdAsync(Guid bookingId, CancellationToken cancellationToken)
         => Task.FromResult(bookings.FirstOrDefault(x => x.Id == bookingId));
 
+    public Task<Booking?> GetByPublicAccessTokenAsync(string publicAccessToken, CancellationToken cancellationToken)
+        => Task.FromResult(bookings.FirstOrDefault(x => x.PublicAccessToken == publicAccessToken));
+
     public Task AddAsync(Booking booking, CancellationToken cancellationToken)
     {
         bookings.Add(booking);

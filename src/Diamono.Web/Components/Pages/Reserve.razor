@@ -27,7 +27,19 @@
             <button class="button primary" type="submit">Envoyer la demande</button>
         </div>
         @if (!string.IsNullOrWhiteSpace(error)) { <div class="alert error">@error</div> }
-        @if (createdReference is not null) { <div class="alert success"><strong>Demande envoyee.</strong> Reference : @createdReference</div> }
+        @if (createdReference is not null)
+        {
+            <div class="alert success booking-confirmation">
+                <strong>Votre demande a ete enregistree.</strong>
+                <div>Reference : <strong>@createdReference</strong></div>
+                <div>Statut : <strong>En attente de validation</strong></div>
+                <div class="form-actions">
+                    <a class="button primary" href="@ProvisionalReceiptUrl" target="_blank">Télécharger le reçu provisoire</a>
+                    <a class="button ghost-dark" href="/disponibilites">Voir les disponibilites</a>
+                    <a class="button ghost-dark" href="/">Retour a l'accueil</a>
+                </div>
+            </div>
+        }
     </EditForm>
 
     <aside class="quote-card">
@@ -49,6 +61,9 @@
     private PriceQuote quote;
     private string? error;
     private string? createdReference;
+    private string? createdPublicAccessToken;
+
+    private string ProvisionalReceiptUrl => $"/reservation/recu-provisoire/{createdPublicAccessToken}";
 
     [SupplyParameterFromQuery(Name = "date")]
     public string? DateQuery { get; set; }
@@ -95,12 +110,14 @@
     {
         error = null;
         createdReference = null;
+        createdPublicAccessToken = null;
         try
         {
             var p = Period();
             var booking = await BookingService.CreateAsync(new CreateBookingRequest(SeedData.MainPitchId, p.Start, p.End,
                 model.CustomerName, model.Phone, model.Category, model.ActivityType));
             createdReference = booking.Reference;
+            createdPublicAccessToken = booking.PublicAccessToken;
             await RefreshQuoteAsync();
         }
         catch (Exception ex)

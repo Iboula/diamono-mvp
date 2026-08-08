@@ -6,6 +6,7 @@ public static class AuditActions
     public const string BookingRejected = "BookingRejected";
     public const string BookingMarkedPaid = "BookingMarkedPaid";
     public const string BookingCancelled = "BookingCancelled";
+    public const string BookingRequestReceiptGenerated = "BookingRequestReceiptGenerated";
     public const string PaymentCreated = "PaymentCreated";
     public const string PaymentPaid = "PaymentPaid";
     public const string PaymentFailed = "PaymentFailed";

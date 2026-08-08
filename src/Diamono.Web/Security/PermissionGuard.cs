@@ -4,6 +4,7 @@ using Diamono.Application.Security;
 using Diamono.Domain.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Http;
 
 namespace Diamono.Web.Security;
 
@@ -13,7 +14,8 @@ namespace Diamono.Web.Security;
 /// </summary>
 public sealed class PermissionGuard(
     AuthenticationStateProvider authenticationStateProvider,
-    IAuthorizationService authorizationService)
+    IAuthorizationService authorizationService,
+    IHttpContextAccessor httpContextAccessor)
     : IPermissionGuard, ICurrentUserAccessor
 {
     public async Task<bool> HasPermissionAsync(string permission, CancellationToken cancellationToken = default)
@@ -46,5 +48,10 @@ public sealed class PermissionGuard(
     }
 
     private async Task<ClaimsPrincipal> GetPrincipalAsync()
-        => (await authenticationStateProvider.GetAuthenticationStateAsync()).User;
+    {
+        if (httpContextAccessor.HttpContext?.User is { } httpUser)
+            return httpUser;
+
+        return (await authenticationStateProvider.GetAuthenticationStateAsync()).User;
+    }
 }

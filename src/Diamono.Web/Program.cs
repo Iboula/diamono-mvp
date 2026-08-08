@@ -1,4 +1,5 @@
 using Diamono.Application.Abstractions;
+using Diamono.Application.Bookings;
 using Diamono.Application.Payments;
 using Diamono.Domain.Security;
 using Diamono.Infrastructure;
@@ -24,6 +25,7 @@ builder.Services.AddRadzenComponents();
 builder.Services.AddDiamonoInfrastructure(builder.Configuration);
 builder.Services.AddDiamonoIdentity();
 builder.Services.AddDiamonoAuthorization();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddCascadingAuthenticationState();
 
 // Un seul objet implemente les deux contrats : autorisation des cas d'usage
@@ -122,7 +124,10 @@ if (!app.Environment.IsDevelopment())
             var logger = context.RequestServices
                 .GetRequiredService<ILoggerFactory>()
                 .CreateLogger("Diamono.UnhandledException");
-            logger.LogError(exception, "Unhandled exception for {Path}.", context.Request.Path);
+            var pathForLog = context.Request.Path.StartsWithSegments("/reservation/recu-provisoire")
+                ? "/reservation/recu-provisoire/{token}"
+                : context.Request.Path.ToString();
+            logger.LogError(exception, "Unhandled exception for {Path}.", pathForLog);
 
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
             context.Response.ContentType = "text/plain; charset=utf-8";
@@ -160,6 +165,29 @@ app.MapGet("/admin/paiements/{paymentId:guid}/recu", async (
     var receipt = await receiptService.GenerateReceiptAsync(paymentId, cancellationToken);
     return Results.File(receipt.Content, receipt.ContentType, receipt.FileName);
 }).RequireAuthorization(Permissions.PaymentsMarkPaid);
+app.MapGet("/reservation/recu-provisoire/{token}", async (
+    string token,
+    IBookingRequestReceiptService receiptService,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var receipt = await receiptService.GeneratePublicReceiptAsync(token, cancellationToken);
+        return Results.File(receipt.Content, receipt.ContentType, receipt.FileName);
+    }
+    catch (KeyNotFoundException)
+    {
+        return Results.NotFound();
+    }
+}).AllowAnonymous();
+app.MapGet("/admin/reservations/{bookingId:guid}/recu-provisoire", async (
+    Guid bookingId,
+    IBookingRequestReceiptService receiptService,
+    CancellationToken cancellationToken) =>
+{
+    var receipt = await receiptService.GenerateBackOfficeReceiptAsync(bookingId, cancellationToken);
+    return Results.File(receipt.Content, receipt.ContentType, receipt.FileName);
+}).RequireAuthorization(Permissions.BookingsView);
 if (app.Environment.IsEnvironment("Testing"))
 {
     app.MapGet("/__test/throw", (HttpContext _) =>

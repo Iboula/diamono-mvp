@@ -1,5 +1,7 @@
 namespace Diamono.Domain.Bookings;
 
+using System.Security.Cryptography;
+
 public sealed class Booking
 {
     private Booking() { }
@@ -13,6 +15,7 @@ public sealed class Booking
 
         Id = Guid.NewGuid();
         Reference = $"DIA-{DateTime.UtcNow:yyyy}-{Random.Shared.Next(10000, 99999)}";
+        PublicAccessToken = CreatePublicAccessToken();
         ResourceId = resourceId;
         StartsAt = startsAt;
         EndsAt = endsAt;
@@ -29,6 +32,7 @@ public sealed class Booking
 
     public Guid Id { get; private set; }
     public string Reference { get; private set; } = string.Empty;
+    public string PublicAccessToken { get; private set; } = string.Empty;
     public Guid ResourceId { get; private set; }
     public DateTimeOffset StartsAt { get; private set; }
     public DateTimeOffset EndsAt { get; private set; }
@@ -89,4 +93,7 @@ public sealed class Booking
     {
         if (Status != expected) throw new InvalidOperationException(message);
     }
+
+    private static string CreatePublicAccessToken()
+        => Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
 }

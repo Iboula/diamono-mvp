@@ -28,6 +28,9 @@ public sealed class BookingRepository(DiamonoDbContext db) : IBookingRepository
     public Task<Booking?> GetByIdAsync(Guid bookingId, CancellationToken cancellationToken)
         => db.Bookings.FirstOrDefaultAsync(x => x.Id == bookingId, cancellationToken);
 
+    public Task<Booking?> GetByPublicAccessTokenAsync(string publicAccessToken, CancellationToken cancellationToken)
+        => db.Bookings.FirstOrDefaultAsync(x => x.PublicAccessToken == publicAccessToken, cancellationToken);
+
     public async Task<IReadOnlyList<Booking>> GetBackOfficeAsync(CancellationToken cancellationToken)
         => await db.Bookings.AsNoTracking()
             .OrderByDescending(x => x.CreatedAt)

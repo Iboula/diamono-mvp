@@ -8,6 +8,7 @@ using Diamono.Application.Payments;
 using Diamono.Application.Settings;
 using Diamono.Application.Reporting;
 using Diamono.Domain.Pricing;
+using Diamono.Infrastructure.Bookings;
 using Diamono.Infrastructure.Identity;
 using Diamono.Infrastructure.Notifications;
 using Diamono.Infrastructure.Payments;
@@ -40,6 +41,8 @@ public static class DependencyInjection
         services.AddScoped<INotificationService, DevelopmentNotificationService>();
         services.AddScoped<INotificationReader, NotificationReader>();
         services.AddScoped<IPaymentProvider, ManualPaymentProvider>();
+        services.AddScoped<IBookingRequestReceiptRenderer, QuestPdfBookingRequestReceiptRenderer>();
+        services.AddScoped<IBookingRequestReceiptService, BookingRequestReceiptService>();
         services.AddScoped<IPaymentReceiptRenderer, QuestPdfPaymentReceiptRenderer>();
         services.AddScoped<IPaymentReceiptService, PaymentReceiptService>();
         services.AddScoped<BookingApplicationService>();
