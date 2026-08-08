@@ -413,8 +413,11 @@
 
     private static string FormatMoney(decimal amount) => $"{amount:N0} F CFA";
 
+    // RadzenDatePicker renvoie un DateTime de Kind=Local : le construire avec un offset zero
+    // leve ArgumentException sur toute machine hors UTC. On neutralise le Kind pour garder
+    // la meme convention que Reserve.razor et AvailabilityApplicationService (offset zero, Dakar UTC+0).
     private static DateTimeOffset Combine(DateTime date, string time)
-        => new(date.Date.Add(TimeSpan.Parse(time)), TimeSpan.Zero);
+        => new(DateTime.SpecifyKind(date.Date.Add(TimeSpan.Parse(time)), DateTimeKind.Unspecified), TimeSpan.Zero);
 
     private static string FormatDateTime(DateTimeOffset? value)
         => value?.ToString("dd/MM/yyyy HH:mm") ?? "-";

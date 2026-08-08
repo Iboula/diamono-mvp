@@ -8,5 +8,11 @@
     <ProjectReference Include="../Diamono.Application/Diamono.Application.csproj" />
     <ProjectReference Include="../Diamono.Infrastructure/Diamono.Infrastructure.csproj" />
     <PackageReference Include="Radzen.Blazor" Version="9.1.0" />
+    <!-- Requis par les outils EF Core lorsque Diamono.Web sert de projet de demarrage.
+         Design-time uniquement : PrivateAssets=all, rien n'est embarque a l'execution. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 </Project>
