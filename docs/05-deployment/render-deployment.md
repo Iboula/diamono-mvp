@@ -31,9 +31,9 @@ Obligatoires :
 - `ASPNETCORE_ENVIRONMENT=Production`
 - `ASPNETCORE_URLS=http://+:8080`
 - `DIAMONO_ENABLE_DEMO_ADMIN=true` pour la demo Render uniquement
-- `DIAMONO_RESET_DEMO_ADMIN_PASSWORD=false` par defaut
 - `DIAMONO_CONNECTION`
-- `DIAMONO_ADMIN_PASSWORD`
+- `DIAMONO_ADMIN_PASSWORD` peut rester renseigne pour compatibilite, mais le
+  hotfix DIA-025F utilise le credential temporaire documente dans la story.
 
 `DIAMONO_CONNECTION` doit pointer vers PostgreSQL avec SSL si Render fournit
 une base managée qui l'exige. Ne pas exposer PostgreSQL publiquement.
@@ -42,35 +42,23 @@ une base managée qui l'exige. Ne pas exposer PostgreSQL publiquement.
 ou production reelle. Sans ce flag explicite, aucun compte demo n'est cree en
 `Production`.
 
-## Recuperer le compte admin de demo
+## Compte admin de demo temporaire
 
-Si `admin@diamono.local` existe deja mais que son mot de passe n'est plus aligne
-avec le secret Render, effectuer un reset controle :
+Hotfix DIA-025F : tant que `DIAMONO_ENABLE_DEMO_ADMIN=true`, le startup garantit
+le compte de demonstration `admin@diamono.local`, son role `SuperAdmin`, son
+deverrouillage et son mot de passe temporaire MVP.
 
-1. Definir temporairement :
+Ce mecanisme est exclusivement destine a la demonstration Render. Il doit etre
+retire avant toute production mairie/reelle.
 
-```text
-DIAMONO_ENABLE_DEMO_ADMIN=true
-DIAMONO_RESET_DEMO_ADMIN_PASSWORD=true
-DIAMONO_ADMIN_PASSWORD=<nouveau secret>
-```
-
-2. Redeployer une fois et verifier la connexion au backoffice.
-3. Remettre :
-
-```text
-DIAMONO_RESET_DEMO_ADMIN_PASSWORD=false
-```
-
-4. Redeployer.
-
-Ne jamais laisser ce flag actif sur une production mairie/reelle.
+Pour des raisons evidentes, ne pas recopier ce credential dans une documentation
+publique longue duree.
 
 ## Blueprint
 
 `render.yaml` fournit un blueprint minimal pour le web service Docker. Les
 secrets `DIAMONO_CONNECTION` et `DIAMONO_ADMIN_PASSWORD` sont marques
-`sync: false` afin d'etre saisis dans Render sans etre commités.
+`sync: false` afin d'etre saisis dans Render sans etre commites.
 
 ## Flow de redeploiement
 

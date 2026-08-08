@@ -16,17 +16,13 @@ namespace Diamono.Web.Tests;
 
 public sealed class DemoAdminBootstrapperTests
 {
-    private const string DemoPassword = "LocalDemo!23456";
-    private const string ResetPassword = "LocalDemo!65432";
+    private const string OldPassword = "LocalDemo!23456";
+    private const string DemoPassword = DemoAdminBootstrapper.DemoAdminPassword;
 
     [Fact]
-    public async Task Production_flag_absent_ne_cree_pas_admin_demo()
+    public async Task Flag_absent_ne_cree_pas_admin_demo()
     {
-        await using var services = BuildServices(
-            environmentName: Environments.Production,
-            enableDemoAdmin: null,
-            resetDemoAdminPassword: null,
-            password: DemoPassword);
+        await using var services = BuildServices(environmentName: Environments.Production, enableDemoAdmin: null);
 
         await BootstrapAsync(services);
 
@@ -34,81 +30,91 @@ public sealed class DemoAdminBootstrapperTests
     }
 
     [Fact]
-    public async Task Production_flag_false_ne_cree_pas_admin_demo()
+    public async Task Flag_false_ne_reset_pas_admin_existant()
     {
-        await using var services = BuildServices(
-            environmentName: Environments.Production,
-            enableDemoAdmin: "false",
-            resetDemoAdminPassword: null,
-            password: DemoPassword);
+        await using var services = BuildServices(environmentName: Environments.Production, enableDemoAdmin: "false");
+        var admin = await CreateExistingAdminAsync(services, OldPassword);
 
         await BootstrapAsync(services);
 
-        Assert.Null(await UserManager(services).FindByEmailAsync(IdentitySeed.DemoAdminEmail));
+        Assert.True(await UserManager(services).CheckPasswordAsync(admin, OldPassword));
+        Assert.False(await UserManager(services).CheckPasswordAsync(admin, DemoPassword));
     }
 
     [Fact]
-    public async Task Production_flag_true_et_password_cree_admin_demo()
+    public async Task Flag_true_et_compte_absent_cree_admin_demo()
     {
-        await using var services = BuildServices(
-            environmentName: Environments.Production,
-            enableDemoAdmin: "true",
-            resetDemoAdminPassword: null,
-            password: DemoPassword);
+        await using var services = BuildServices(environmentName: Environments.Production, enableDemoAdmin: "true");
 
         await BootstrapAsync(services);
 
-        var admin = await UserManager(services).FindByEmailAsync(IdentitySeed.DemoAdminEmail);
-        Assert.NotNull(admin);
+        var admin = await GetDemoAdminAsync(services);
+        Assert.Equal(IdentitySeed.DemoAdminEmail, admin.Email);
+        Assert.Equal("Administrateur Diamono", admin.DisplayName);
+        Assert.True(admin.EmailConfirmed);
+    }
+
+    [Fact]
+    public async Task Login_avec_password_demo_reussit()
+    {
+        await using var services = BuildServices(environmentName: Environments.Production, enableDemoAdmin: "true");
+
+        await BootstrapAsync(services);
+
+        var admin = await GetDemoAdminAsync(services);
         Assert.True(await UserManager(services).CheckPasswordAsync(admin, DemoPassword));
     }
 
     [Fact]
-    public async Task Flag_true_sans_password_ne_cree_pas_admin_demo()
+    public async Task Compte_existant_ancien_password_est_remplace()
     {
-        await using var services = BuildServices(
-            environmentName: Environments.Production,
-            enableDemoAdmin: "true",
-            resetDemoAdminPassword: null,
-            password: null);
+        await using var services = BuildServices(environmentName: Environments.Production, enableDemoAdmin: "true");
+        await CreateExistingAdminAsync(services, OldPassword);
 
         await BootstrapAsync(services);
 
-        Assert.Null(await UserManager(services).FindByEmailAsync(IdentitySeed.DemoAdminEmail));
+        var admin = await GetDemoAdminAsync(services);
+        Assert.True(await UserManager(services).CheckPasswordAsync(admin, DemoPassword));
+        Assert.False(await UserManager(services).CheckPasswordAsync(admin, OldPassword));
     }
 
     [Fact]
-    public async Task Admin_existant_n_est_pas_duplique()
+    public async Task Compte_locke_est_deverrouille()
     {
-        await using var services = BuildServices(
-            environmentName: Environments.Production,
-            enableDemoAdmin: "true",
-            resetDemoAdminPassword: null,
-            password: DemoPassword);
+        await using var services = BuildServices(environmentName: Environments.Production, enableDemoAdmin: "true");
+        var admin = await CreateExistingAdminAsync(services, OldPassword);
+        await UserManager(services).SetLockoutEnabledAsync(admin, true);
+        await UserManager(services).SetLockoutEndDateAsync(admin, DateTimeOffset.UtcNow.AddHours(2));
 
         await BootstrapAsync(services);
-        await BootstrapAsync(services);
 
-        var users = await services.GetRequiredService<DiamonoDbContext>().Users
-            .Where(x => x.Email == IdentitySeed.DemoAdminEmail)
-            .ToListAsync();
-
-        Assert.Single(users);
+        admin = await GetDemoAdminAsync(services);
+        Assert.Null(await UserManager(services).GetLockoutEndDateAsync(admin));
     }
 
     [Fact]
-    public async Task Admin_demo_recoit_le_role_SuperAdmin()
+    public async Task AccessFailedCount_est_remis_a_zero()
     {
-        await using var services = BuildServices(
-            environmentName: Environments.Production,
-            enableDemoAdmin: "true",
-            resetDemoAdminPassword: null,
-            password: DemoPassword);
+        await using var services = BuildServices(environmentName: Environments.Production, enableDemoAdmin: "true");
+        var admin = await CreateExistingAdminAsync(services, OldPassword);
+        await UserManager(services).AccessFailedAsync(admin);
+        await UserManager(services).AccessFailedAsync(admin);
 
         await BootstrapAsync(services);
 
-        var admin = await UserManager(services).FindByEmailAsync(IdentitySeed.DemoAdminEmail);
-        Assert.NotNull(admin);
+        admin = await GetDemoAdminAsync(services);
+        Assert.Equal(0, await UserManager(services).GetAccessFailedCountAsync(admin));
+    }
+
+    [Fact]
+    public async Task Role_SuperAdmin_est_garanti()
+    {
+        await using var services = BuildServices(environmentName: Environments.Production, enableDemoAdmin: "true");
+        await CreateExistingAdminAsync(services, OldPassword, addSuperAdminRole: false);
+
+        await BootstrapAsync(services);
+
+        var admin = await GetDemoAdminAsync(services);
         Assert.True(await UserManager(services).IsInRoleAsync(admin, DiamonoRoles.SuperAdmin));
     }
 
@@ -119,109 +125,13 @@ public sealed class DemoAdminBootstrapperTests
         await using var services = BuildServices(
             environmentName: Environments.Production,
             enableDemoAdmin: "true",
-            resetDemoAdminPassword: "true",
-            password: DemoPassword,
             logSink: logSink);
+        await CreateExistingAdminAsync(services, OldPassword);
 
-        await BootstrapAsync(services);
-        SetConfiguration(services, IdentitySeed.AdminPasswordConfigurationKey, ResetPassword);
         await BootstrapAsync(services);
 
         Assert.DoesNotContain(logSink.Messages, message => message.Contains(DemoPassword, StringComparison.Ordinal));
-        Assert.DoesNotContain(logSink.Messages, message => message.Contains(ResetPassword, StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public async Task Admin_existant_reset_false_garde_l_ancien_password()
-    {
-        await using var services = BuildServices(
-            environmentName: Environments.Production,
-            enableDemoAdmin: "true",
-            resetDemoAdminPassword: "false",
-            password: DemoPassword);
-
-        await BootstrapAsync(services);
-        SetConfiguration(services, IdentitySeed.AdminPasswordConfigurationKey, ResetPassword);
-        await BootstrapAsync(services);
-
-        var admin = await GetDemoAdminAsync(services);
-        Assert.True(await UserManager(services).CheckPasswordAsync(admin, DemoPassword));
-        Assert.False(await UserManager(services).CheckPasswordAsync(admin, ResetPassword));
-    }
-
-    [Fact]
-    public async Task Admin_existant_reset_true_utilise_le_nouveau_password()
-    {
-        await using var services = BuildServices(
-            environmentName: Environments.Production,
-            enableDemoAdmin: "true",
-            resetDemoAdminPassword: "false",
-            password: DemoPassword);
-
-        await BootstrapAsync(services);
-        SetConfiguration(services, IdentitySeed.AdminPasswordConfigurationKey, ResetPassword);
-        SetConfiguration(services, DemoAdminBootstrapper.ResetDemoAdminPasswordConfigurationKey, "true");
-        await BootstrapAsync(services);
-
-        var admin = await GetDemoAdminAsync(services);
-        Assert.True(await UserManager(services).CheckPasswordAsync(admin, ResetPassword));
-        Assert.False(await UserManager(services).CheckPasswordAsync(admin, DemoPassword));
-    }
-
-    [Fact]
-    public async Task Reset_true_conserve_le_role_SuperAdmin()
-    {
-        await using var services = BuildServices(
-            environmentName: Environments.Production,
-            enableDemoAdmin: "true",
-            resetDemoAdminPassword: "false",
-            password: DemoPassword);
-
-        await BootstrapAsync(services);
-        SetConfiguration(services, IdentitySeed.AdminPasswordConfigurationKey, ResetPassword);
-        SetConfiguration(services, DemoAdminBootstrapper.ResetDemoAdminPasswordConfigurationKey, "true");
-        await BootstrapAsync(services);
-
-        var admin = await GetDemoAdminAsync(services);
-        Assert.True(await UserManager(services).IsInRoleAsync(admin, DiamonoRoles.SuperAdmin));
-    }
-
-    [Fact]
-    public async Task Reset_false_par_defaut()
-    {
-        await using var services = BuildServices(
-            environmentName: Environments.Production,
-            enableDemoAdmin: "true",
-            resetDemoAdminPassword: null,
-            password: DemoPassword);
-
-        await BootstrapAsync(services);
-        SetConfiguration(services, IdentitySeed.AdminPasswordConfigurationKey, ResetPassword);
-        await BootstrapAsync(services);
-
-        var admin = await GetDemoAdminAsync(services);
-        Assert.True(await UserManager(services).CheckPasswordAsync(admin, DemoPassword));
-        Assert.False(await UserManager(services).CheckPasswordAsync(admin, ResetPassword));
-    }
-
-    [Fact]
-    public async Task Production_sans_demo_flag_ne_reset_pas()
-    {
-        await using var services = BuildServices(
-            environmentName: Environments.Production,
-            enableDemoAdmin: "true",
-            resetDemoAdminPassword: "false",
-            password: DemoPassword);
-
-        await BootstrapAsync(services);
-        SetConfiguration(services, DemoAdminBootstrapper.EnableDemoAdminConfigurationKey, null);
-        SetConfiguration(services, DemoAdminBootstrapper.ResetDemoAdminPasswordConfigurationKey, "true");
-        SetConfiguration(services, IdentitySeed.AdminPasswordConfigurationKey, ResetPassword);
-        await BootstrapAsync(services);
-
-        var admin = await GetDemoAdminAsync(services);
-        Assert.True(await UserManager(services).CheckPasswordAsync(admin, DemoPassword));
-        Assert.False(await UserManager(services).CheckPasswordAsync(admin, ResetPassword));
+        Assert.DoesNotContain(logSink.Messages, message => message.Contains(OldPassword, StringComparison.Ordinal));
     }
 
     private static async Task BootstrapAsync(ServiceProvider services)
@@ -237,23 +147,37 @@ public sealed class DemoAdminBootstrapperTests
         => await UserManager(services).FindByEmailAsync(IdentitySeed.DemoAdminEmail)
            ?? throw new InvalidOperationException("Demo admin should exist.");
 
-    private static void SetConfiguration(ServiceProvider services, string key, string? value)
-        => services.GetRequiredService<IConfiguration>()[key] = value;
+    private static async Task<ApplicationUser> CreateExistingAdminAsync(
+        ServiceProvider services,
+        string password,
+        bool addSuperAdminRole = true)
+    {
+        await IdentitySeed.SeedRolesAsync(services.GetRequiredService<RoleManager<ApplicationRole>>());
+        var admin = new ApplicationUser
+        {
+            UserName = IdentitySeed.DemoAdminEmail,
+            Email = IdentitySeed.DemoAdminEmail,
+            EmailConfirmed = true,
+            DisplayName = "Administrateur Diamono"
+        };
+
+        var created = await UserManager(services).CreateAsync(admin, password);
+        Assert.True(created.Succeeded, string.Join(" | ", created.Errors.Select(x => x.Description)));
+
+        if (addSuperAdminRole)
+            await UserManager(services).AddToRoleAsync(admin, DiamonoRoles.SuperAdmin);
+
+        return admin;
+    }
 
     private static ServiceProvider BuildServices(
         string environmentName,
         string? enableDemoAdmin,
-        string? resetDemoAdminPassword,
-        string? password,
         InMemoryLogSink? logSink = null)
     {
         var configurationValues = new Dictionary<string, string?>();
         if (enableDemoAdmin is not null)
             configurationValues[DemoAdminBootstrapper.EnableDemoAdminConfigurationKey] = enableDemoAdmin;
-        if (resetDemoAdminPassword is not null)
-            configurationValues[DemoAdminBootstrapper.ResetDemoAdminPasswordConfigurationKey] = resetDemoAdminPassword;
-        if (password is not null)
-            configurationValues[IdentitySeed.AdminPasswordConfigurationKey] = password;
 
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
@@ -275,6 +199,7 @@ public sealed class DemoAdminBootstrapperTests
             options.Password.RequireLowercase = true;
             options.Password.RequireUppercase = true;
             options.Password.RequireNonAlphanumeric = true;
+            options.Lockout.AllowedForNewUsers = true;
         })
         .AddEntityFrameworkStores<DiamonoDbContext>()
         .AddDefaultTokenProviders();

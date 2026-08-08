@@ -7,7 +7,10 @@ namespace Diamono.Web.Startup;
 public sealed class DemoAdminBootstrapper
 {
     public const string EnableDemoAdminConfigurationKey = "DIAMONO_ENABLE_DEMO_ADMIN";
-    public const string ResetDemoAdminPasswordConfigurationKey = "DIAMONO_RESET_DEMO_ADMIN_PASSWORD";
+
+    // TEMPORARY MVP DEMO CREDENTIAL.
+    // MUST BE REMOVED BEFORE MUNICIPAL PRODUCTION.
+    public const string DemoAdminPassword = "DiamonoDemo2026!";
 
     private readonly UserManager<ApplicationUser> userManager;
     private readonly IConfiguration configuration;
@@ -30,87 +33,79 @@ public sealed class DemoAdminBootstrapper
     {
         if (!ShouldBootstrapDemoAdmin(environment, configuration))
         {
-            logger.LogInformation("Demo admin bootstrap disabled.");
             return;
         }
 
-        logger.LogInformation("Demo admin bootstrap enabled.");
-        var existingAdmin = await userManager.FindByEmailAsync(IdentitySeed.DemoAdminEmail);
-        var existedBefore = existingAdmin is not null;
-        logger.LogInformation("Demo admin exists: {AdminExists}.", existedBefore);
-
-        var resetPasswordRequested = ShouldResetDemoAdminPassword(configuration);
-        logger.LogInformation("Demo admin password reset requested: {ResetPasswordRequested}.", resetPasswordRequested);
-
-        await IdentitySeed.SeedDemoAdminAsync(
-            userManager,
-            configuration[IdentitySeed.AdminPasswordConfigurationKey],
-            logger,
-            cancellationToken);
-
         var admin = await userManager.FindByEmailAsync(IdentitySeed.DemoAdminEmail);
-        if (admin is not null && existedBefore)
-            logger.LogInformation("Demo admin already exists.");
-        else if (admin is not null)
-            logger.LogInformation("Demo admin created.");
-
         if (admin is null)
+        {
+            admin = new ApplicationUser
+            {
+                UserName = IdentitySeed.DemoAdminEmail,
+                Email = IdentitySeed.DemoAdminEmail,
+                EmailConfirmed = true,
+                DisplayName = "Administrateur Diamono"
+            };
+
+            var created = await userManager.CreateAsync(admin, DemoAdminPassword);
+            if (!created.Succeeded)
+                return;
+        }
+        else
+        {
+            if (!await ResetDemoAdminPasswordAsync(admin, cancellationToken))
+                return;
+        }
+
+        if (!await userManager.IsInRoleAsync(admin, DiamonoRoles.SuperAdmin))
+        {
+            var role = await userManager.AddToRoleAsync(admin, DiamonoRoles.SuperAdmin);
+            if (!role.Succeeded)
+                return;
+        }
+
+        if (!await ClearLockoutAsync(admin))
             return;
 
-        var hasSuperAdminRole = await userManager.IsInRoleAsync(admin, DiamonoRoles.SuperAdmin);
-        logger.LogInformation("Demo admin SuperAdmin role present: {SuperAdminRolePresent}.", hasSuperAdminRole);
-
-        if (resetPasswordRequested && existedBefore)
-            await ResetExistingDemoAdminPasswordAsync(admin, cancellationToken);
+        logger.LogInformation("Demo admin account ensured.");
     }
 
     public static bool ShouldBootstrapDemoAdmin(IHostEnvironment environment, IConfiguration configuration)
-        => !environment.IsProduction()
-           || string.Equals(
-               configuration[EnableDemoAdminConfigurationKey],
-               "true",
-               StringComparison.OrdinalIgnoreCase);
-
-    private static bool ShouldResetDemoAdminPassword(IConfiguration configuration)
         => string.Equals(
-            configuration[ResetDemoAdminPasswordConfigurationKey],
+            configuration[EnableDemoAdminConfigurationKey],
             "true",
             StringComparison.OrdinalIgnoreCase);
 
-    private async Task ResetExistingDemoAdminPasswordAsync(
+    private async Task<bool> ResetDemoAdminPasswordAsync(
         ApplicationUser admin,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var adminPassword = configuration[IdentitySeed.AdminPasswordConfigurationKey];
-        if (string.IsNullOrWhiteSpace(adminPassword))
-        {
-            logger.LogWarning(
-                "Demo admin password reset failed: {Key} is not defined.",
-                IdentitySeed.AdminPasswordConfigurationKey);
-            return;
-        }
-
         var resetToken = await userManager.GeneratePasswordResetTokenAsync(admin);
-        var reset = await userManager.ResetPasswordAsync(admin, resetToken, adminPassword);
+        var reset = await userManager.ResetPasswordAsync(admin, resetToken, DemoAdminPassword);
         if (!reset.Succeeded)
-        {
-            logger.LogError(
-                "Demo admin password reset failed: {Errors}",
-                string.Join(" | ", reset.Errors.Select(e => $"{e.Code}: {e.Description}")));
-            return;
-        }
+            return false;
+
+        logger.LogInformation("Demo admin password reset.");
+        return true;
+    }
+
+    private async Task<bool> ClearLockoutAsync(ApplicationUser admin)
+    {
+        var resetAccessFailed = await userManager.ResetAccessFailedCountAsync(admin);
+        if (!resetAccessFailed.Succeeded)
+            return false;
+
+        var clearLockout = await userManager.SetLockoutEndDateAsync(admin, null);
+        if (!clearLockout.Succeeded)
+            return false;
 
         var securityStamp = await userManager.UpdateSecurityStampAsync(admin);
         if (!securityStamp.Succeeded)
-        {
-            logger.LogError(
-                "Demo admin security stamp renewal failed: {Errors}",
-                string.Join(" | ", securityStamp.Errors.Select(e => $"{e.Code}: {e.Description}")));
-            return;
-        }
+            return false;
 
-        logger.LogInformation("Demo admin password reset completed.");
+        logger.LogInformation("Demo admin lockout cleared.");
+        return true;
     }
 }

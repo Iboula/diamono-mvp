@@ -13,8 +13,6 @@ services:
         value: http://+:8080
       - key: DIAMONO_ENABLE_DEMO_ADMIN
         value: "false"
-      - key: DIAMONO_RESET_DEMO_ADMIN_PASSWORD
-        value: "false"
       - key: DIAMONO_CONNECTION
         sync: false
       - key: DIAMONO_ADMIN_PASSWORD
