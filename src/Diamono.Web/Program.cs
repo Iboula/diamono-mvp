@@ -7,6 +7,7 @@ using Diamono.Infrastructure.Persistence;
 using Diamono.Web.Components;
 using Diamono.Web.Health;
 using Diamono.Web.Security;
+using Diamono.Web.Startup;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http;
@@ -30,6 +31,9 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<PermissionGuard>();
 builder.Services.AddScoped<IPermissionGuard>(sp => sp.GetRequiredService<PermissionGuard>());
 builder.Services.AddScoped<ICurrentUserAccessor>(sp => sp.GetRequiredService<PermissionGuard>());
+builder.Services.AddScoped<IDatabaseMigrationRunner, EfDatabaseMigrationRunner>();
+builder.Services.AddScoped<ISeedDataRunner, SeedDataRunner>();
+builder.Services.AddScoped<DatabaseStartupCoordinator>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -169,21 +173,12 @@ await using (var scope = app.Services.CreateAsyncScope())
 {
     var services = scope.ServiceProvider;
     var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("Diamono.Startup");
-    var db = services.GetRequiredService<DiamonoDbContext>();
 
     logger.LogInformation(
         "Starting Diamono Web in {Environment}.",
         app.Environment.EnvironmentName);
 
-    if (db.Database.IsRelational())
-    {
-        var pendingMigrations = (await db.Database.GetPendingMigrationsAsync()).ToList();
-        logger.LogInformation(
-            "Database migration state checked. Pending migrations: {PendingMigrationCount}.",
-            pendingMigrations.Count);
-    }
-
-    await SeedData.InitializeAsync(db);
+    await services.GetRequiredService<DatabaseStartupCoordinator>().InitializeAsync();
 
     await IdentitySeed.SeedRolesAsync(services.GetRequiredService<RoleManager<ApplicationRole>>());
 

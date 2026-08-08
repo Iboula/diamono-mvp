@@ -60,9 +60,13 @@ Procedure recommandee :
 
 1. Faire un backup `pg_dump`.
 2. Verifier le restore sur une base de test si le changement est risqué.
-3. Appliquer les migrations avec `dotnet ef database update`.
-4. Deployer l'application.
+3. Deployer l'application.
+4. Pour la demo Render MVP, laisser le startup appliquer `MigrateAsync`.
 5. Verifier `/health/live` puis `/health/ready`.
 6. Faire un smoke test fonctionnel.
+
+En production multi-instance future, remplacer l'etape 4 par une migration
+controlee separee avec `dotnet ef database update` avant le demarrage des
+instances web.
 
 Ne pas utiliser `EnsureCreated` sur une base geree par migrations.

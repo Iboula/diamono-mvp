@@ -51,8 +51,8 @@ compose versionnes.
 4. Configurer le reverse proxy Caddy avec le domaine choisi.
 5. Exporter les variables d'environnement ou utiliser un gestionnaire de secrets.
 6. Lancer PostgreSQL, restaurer un backup si necessaire.
-7. Appliquer les migrations.
-8. Demarrer l'image Diamono.
+7. Demarrer l'image Diamono.
+8. Le startup applique les migrations puis initialise le seed minimal.
 9. Verifier `/health/live` et `/health/ready`.
 
 ## Migration flow
@@ -61,13 +61,15 @@ Avant chaque deploiement :
 
 1. Backup PostgreSQL avec `pg_dump`.
 2. Verifier que le backup est lisible.
-3. Appliquer les migrations avec `dotnet ef database update` depuis un runner
-   disposant du SDK et de `DIAMONO_CONNECTION`.
-4. Deployer l'image.
+3. Deployer l'image.
+4. Laisser le startup appliquer `MigrateAsync` puis le seed minimal.
 5. Attendre `/health/ready = 200`.
 6. Lancer `scripts/smoke-demo.sh`.
 
 Ne jamais utiliser `EnsureCreated`.
+
+Pour une production multi-instance future, preferer un runner de migrations
+separe avant de demarrer plusieurs instances web.
 
 ## Health gate
 

@@ -81,8 +81,11 @@ Variables GitHub d'environnement `demo` :
 9. Smoke test manuel staging.
 10. Validation demo.
 
-## Limite volontaire
+## Migrations
 
-Les migrations ne sont pas lancees directement par le container runtime. Elles
-doivent etre appliquees avant deploiement avec un runner disposant du SDK .NET
-et de la variable `DIAMONO_CONNECTION`.
+Pour la demo Render MVP, le container applique `Database.MigrateAsync` au
+startup avant le seed minimal. Cela permet de demarrer une base PostgreSQL vide
+sans pre-deploy command separee.
+
+Pour une production multi-instance future, preferer un runner de migrations
+unique avant de demarrer plusieurs instances web.

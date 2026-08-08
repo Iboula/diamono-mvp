@@ -39,8 +39,9 @@ public sealed class DiamonoReadinessHealthCheck : IHealthCheck
 
             if (db.Database.IsRelational())
             {
-                var pendingMigrations = await db.Database.GetPendingMigrationsAsync(cancellationToken);
-                _ = pendingMigrations.ToList();
+                var pendingMigrations = (await db.Database.GetPendingMigrationsAsync(cancellationToken)).ToList();
+                if (pendingMigrations.Count > 0)
+                    return HealthCheckResult.Unhealthy("Database migrations are pending.");
             }
 
             services.GetRequiredService<BookingApplicationService>();

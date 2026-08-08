@@ -14,7 +14,10 @@ That left a reproducibility gap: a fresh PostgreSQL database could not be initia
 
 EF Core migrations are the source of truth for the database schema.
 
-The application does not run `EnsureCreatedAsync` and does not automatically run `MigrateAsync` at startup. Migrations are an explicit deployment step:
+The application does not run `EnsureCreatedAsync`. For the Render MVP demo,
+the web container runs `MigrateAsync` at startup before seed data. For future
+multi-instance production, a separate controlled migration step remains
+preferred:
 
 ```bash
 dotnet ef database update --project src/Diamono.Infrastructure --startup-project src/Diamono.Web

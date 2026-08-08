@@ -18,9 +18,11 @@ est versionne a la racine :
 | Health Check Path | `/health/ready` |
 | Pre-Deploy Command | vide |
 
-Le `Pre-Deploy Command` reste vide dans cette branche car aucun migrator separe
-n'est fourni. Les migrations EF Core sont une etape manuelle controlee avant le
-redeploiement. Ne pas utiliser `EnsureCreated`.
+Le `Pre-Deploy Command` reste vide dans cette branche : pour la demo Render MVP,
+le container applique `Database.MigrateAsync` au startup avant le seed. Cette
+strategie permet a une base PostgreSQL vide de demarrer sans commande separee.
+En production multi-instance, preferer une migration controlee separee.
+Ne pas utiliser `EnsureCreated`.
 
 ## Variables d'environnement
 
@@ -45,9 +47,8 @@ secrets `DIAMONO_CONNECTION` et `DIAMONO_ADMIN_PASSWORD` sont marques
 1. Pousser `release/v0.2-demo`.
 2. Configurer Render sur cette branche.
 3. Verifier que Root Directory est vide et Dockerfile Path vaut `./Dockerfile`.
-4. Appliquer les migrations EF Core sur la base cible depuis un poste/runner
-   autorise.
-5. Lancer le redeploiement Render.
+4. Lancer le redeploiement Render.
+5. Le startup applique les migrations puis initialise le seed minimal.
 6. Attendre `/health/ready = 200`.
 7. Lancer le smoke test :
 
