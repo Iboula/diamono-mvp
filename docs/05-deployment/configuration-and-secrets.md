@@ -11,12 +11,17 @@ connexion complete ne doit etre versionne dans `appsettings*.json`.
 | `DIAMONO_CONNECTION` | Connexion PostgreSQL EF Core | `Host=db;Port=5432;Database=diamono;Username=diamono;Password=<secret>` |
 | `DIAMONO_ADMIN_PASSWORD` | Mot de passe du compte admin de demonstration hors Production | `<secret>` |
 | `DIAMONO_ENABLE_DEMO_ADMIN` | Autorise explicitement le compte admin demo en Production demo | `true` uniquement pour Render demo |
+| `DIAMONO_RESET_DEMO_ADMIN_PASSWORD` | Realigne explicitement le password admin demo existant | `false` par defaut |
 | `ASPNETCORE_ENVIRONMENT` | Environnement ASP.NET Core | `Production` |
 | `ASPNETCORE_URLS` | URL interne ecoutee par le container | `http://+:8080` |
 
 En `Production`, le seed du compte de demonstration n'est execute que si
 `DIAMONO_ENABLE_DEMO_ADMIN=true`. La variable `DIAMONO_ADMIN_PASSWORD` reste
 necessaire pour creer le compte demo lorsque ce flag explicite est active.
+Si le compte existe deja, son mot de passe n'est realigne avec
+`DIAMONO_ADMIN_PASSWORD` que si `DIAMONO_RESET_DEMO_ADMIN_PASSWORD=true`.
+Ce flag de recuperation doit etre remis a `false` apres un redeploiement
+reussi.
 
 ## Placeholders futurs
 
@@ -43,6 +48,7 @@ doivent pas etre definies avec des valeurs reelles dans le depot.
 - Verifier que `ASPNETCORE_ENVIRONMENT=Production` est positionne pour un deploiement production-like.
 - Ne pas activer `DIAMONO_SEED_DEMO=true` sur une production reelle.
 - Ne pas activer `DIAMONO_ENABLE_DEMO_ADMIN=true` sur une production mairie/reelle.
+- Ne jamais laisser `DIAMONO_RESET_DEMO_ADMIN_PASSWORD=true` sur une production mairie/reelle.
 
 ## Configuration locale
 

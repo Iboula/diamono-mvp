@@ -31,6 +31,7 @@ Obligatoires :
 - `ASPNETCORE_ENVIRONMENT=Production`
 - `ASPNETCORE_URLS=http://+:8080`
 - `DIAMONO_ENABLE_DEMO_ADMIN=true` pour la demo Render uniquement
+- `DIAMONO_RESET_DEMO_ADMIN_PASSWORD=false` par defaut
 - `DIAMONO_CONNECTION`
 - `DIAMONO_ADMIN_PASSWORD`
 
@@ -40,6 +41,30 @@ une base managée qui l'exige. Ne pas exposer PostgreSQL publiquement.
 `DIAMONO_ENABLE_DEMO_ADMIN` ne doit pas etre active sur un environnement mairie
 ou production reelle. Sans ce flag explicite, aucun compte demo n'est cree en
 `Production`.
+
+## Recuperer le compte admin de demo
+
+Si `admin@diamono.local` existe deja mais que son mot de passe n'est plus aligne
+avec le secret Render, effectuer un reset controle :
+
+1. Definir temporairement :
+
+```text
+DIAMONO_ENABLE_DEMO_ADMIN=true
+DIAMONO_RESET_DEMO_ADMIN_PASSWORD=true
+DIAMONO_ADMIN_PASSWORD=<nouveau secret>
+```
+
+2. Redeployer une fois et verifier la connexion au backoffice.
+3. Remettre :
+
+```text
+DIAMONO_RESET_DEMO_ADMIN_PASSWORD=false
+```
+
+4. Redeployer.
+
+Ne jamais laisser ce flag actif sur une production mairie/reelle.
 
 ## Blueprint
 

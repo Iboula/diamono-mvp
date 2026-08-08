@@ -17,11 +17,16 @@ namespace Diamono.Web.Tests;
 public sealed class DemoAdminBootstrapperTests
 {
     private const string DemoPassword = "LocalDemo!23456";
+    private const string ResetPassword = "LocalDemo!65432";
 
     [Fact]
     public async Task Production_flag_absent_ne_cree_pas_admin_demo()
     {
-        await using var services = BuildServices(environmentName: Environments.Production, enableDemoAdmin: null, password: DemoPassword);
+        await using var services = BuildServices(
+            environmentName: Environments.Production,
+            enableDemoAdmin: null,
+            resetDemoAdminPassword: null,
+            password: DemoPassword);
 
         await BootstrapAsync(services);
 
@@ -31,7 +36,11 @@ public sealed class DemoAdminBootstrapperTests
     [Fact]
     public async Task Production_flag_false_ne_cree_pas_admin_demo()
     {
-        await using var services = BuildServices(environmentName: Environments.Production, enableDemoAdmin: "false", password: DemoPassword);
+        await using var services = BuildServices(
+            environmentName: Environments.Production,
+            enableDemoAdmin: "false",
+            resetDemoAdminPassword: null,
+            password: DemoPassword);
 
         await BootstrapAsync(services);
 
@@ -41,7 +50,11 @@ public sealed class DemoAdminBootstrapperTests
     [Fact]
     public async Task Production_flag_true_et_password_cree_admin_demo()
     {
-        await using var services = BuildServices(environmentName: Environments.Production, enableDemoAdmin: "true", password: DemoPassword);
+        await using var services = BuildServices(
+            environmentName: Environments.Production,
+            enableDemoAdmin: "true",
+            resetDemoAdminPassword: null,
+            password: DemoPassword);
 
         await BootstrapAsync(services);
 
@@ -53,7 +66,11 @@ public sealed class DemoAdminBootstrapperTests
     [Fact]
     public async Task Flag_true_sans_password_ne_cree_pas_admin_demo()
     {
-        await using var services = BuildServices(environmentName: Environments.Production, enableDemoAdmin: "true", password: null);
+        await using var services = BuildServices(
+            environmentName: Environments.Production,
+            enableDemoAdmin: "true",
+            resetDemoAdminPassword: null,
+            password: null);
 
         await BootstrapAsync(services);
 
@@ -63,7 +80,11 @@ public sealed class DemoAdminBootstrapperTests
     [Fact]
     public async Task Admin_existant_n_est_pas_duplique()
     {
-        await using var services = BuildServices(environmentName: Environments.Production, enableDemoAdmin: "true", password: DemoPassword);
+        await using var services = BuildServices(
+            environmentName: Environments.Production,
+            enableDemoAdmin: "true",
+            resetDemoAdminPassword: null,
+            password: DemoPassword);
 
         await BootstrapAsync(services);
         await BootstrapAsync(services);
@@ -78,7 +99,11 @@ public sealed class DemoAdminBootstrapperTests
     [Fact]
     public async Task Admin_demo_recoit_le_role_SuperAdmin()
     {
-        await using var services = BuildServices(environmentName: Environments.Production, enableDemoAdmin: "true", password: DemoPassword);
+        await using var services = BuildServices(
+            environmentName: Environments.Production,
+            enableDemoAdmin: "true",
+            resetDemoAdminPassword: null,
+            password: DemoPassword);
 
         await BootstrapAsync(services);
 
@@ -94,12 +119,109 @@ public sealed class DemoAdminBootstrapperTests
         await using var services = BuildServices(
             environmentName: Environments.Production,
             enableDemoAdmin: "true",
+            resetDemoAdminPassword: "true",
             password: DemoPassword,
             logSink: logSink);
 
         await BootstrapAsync(services);
+        SetConfiguration(services, IdentitySeed.AdminPasswordConfigurationKey, ResetPassword);
+        await BootstrapAsync(services);
 
         Assert.DoesNotContain(logSink.Messages, message => message.Contains(DemoPassword, StringComparison.Ordinal));
+        Assert.DoesNotContain(logSink.Messages, message => message.Contains(ResetPassword, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Admin_existant_reset_false_garde_l_ancien_password()
+    {
+        await using var services = BuildServices(
+            environmentName: Environments.Production,
+            enableDemoAdmin: "true",
+            resetDemoAdminPassword: "false",
+            password: DemoPassword);
+
+        await BootstrapAsync(services);
+        SetConfiguration(services, IdentitySeed.AdminPasswordConfigurationKey, ResetPassword);
+        await BootstrapAsync(services);
+
+        var admin = await GetDemoAdminAsync(services);
+        Assert.True(await UserManager(services).CheckPasswordAsync(admin, DemoPassword));
+        Assert.False(await UserManager(services).CheckPasswordAsync(admin, ResetPassword));
+    }
+
+    [Fact]
+    public async Task Admin_existant_reset_true_utilise_le_nouveau_password()
+    {
+        await using var services = BuildServices(
+            environmentName: Environments.Production,
+            enableDemoAdmin: "true",
+            resetDemoAdminPassword: "false",
+            password: DemoPassword);
+
+        await BootstrapAsync(services);
+        SetConfiguration(services, IdentitySeed.AdminPasswordConfigurationKey, ResetPassword);
+        SetConfiguration(services, DemoAdminBootstrapper.ResetDemoAdminPasswordConfigurationKey, "true");
+        await BootstrapAsync(services);
+
+        var admin = await GetDemoAdminAsync(services);
+        Assert.True(await UserManager(services).CheckPasswordAsync(admin, ResetPassword));
+        Assert.False(await UserManager(services).CheckPasswordAsync(admin, DemoPassword));
+    }
+
+    [Fact]
+    public async Task Reset_true_conserve_le_role_SuperAdmin()
+    {
+        await using var services = BuildServices(
+            environmentName: Environments.Production,
+            enableDemoAdmin: "true",
+            resetDemoAdminPassword: "false",
+            password: DemoPassword);
+
+        await BootstrapAsync(services);
+        SetConfiguration(services, IdentitySeed.AdminPasswordConfigurationKey, ResetPassword);
+        SetConfiguration(services, DemoAdminBootstrapper.ResetDemoAdminPasswordConfigurationKey, "true");
+        await BootstrapAsync(services);
+
+        var admin = await GetDemoAdminAsync(services);
+        Assert.True(await UserManager(services).IsInRoleAsync(admin, DiamonoRoles.SuperAdmin));
+    }
+
+    [Fact]
+    public async Task Reset_false_par_defaut()
+    {
+        await using var services = BuildServices(
+            environmentName: Environments.Production,
+            enableDemoAdmin: "true",
+            resetDemoAdminPassword: null,
+            password: DemoPassword);
+
+        await BootstrapAsync(services);
+        SetConfiguration(services, IdentitySeed.AdminPasswordConfigurationKey, ResetPassword);
+        await BootstrapAsync(services);
+
+        var admin = await GetDemoAdminAsync(services);
+        Assert.True(await UserManager(services).CheckPasswordAsync(admin, DemoPassword));
+        Assert.False(await UserManager(services).CheckPasswordAsync(admin, ResetPassword));
+    }
+
+    [Fact]
+    public async Task Production_sans_demo_flag_ne_reset_pas()
+    {
+        await using var services = BuildServices(
+            environmentName: Environments.Production,
+            enableDemoAdmin: "true",
+            resetDemoAdminPassword: "false",
+            password: DemoPassword);
+
+        await BootstrapAsync(services);
+        SetConfiguration(services, DemoAdminBootstrapper.EnableDemoAdminConfigurationKey, null);
+        SetConfiguration(services, DemoAdminBootstrapper.ResetDemoAdminPasswordConfigurationKey, "true");
+        SetConfiguration(services, IdentitySeed.AdminPasswordConfigurationKey, ResetPassword);
+        await BootstrapAsync(services);
+
+        var admin = await GetDemoAdminAsync(services);
+        Assert.True(await UserManager(services).CheckPasswordAsync(admin, DemoPassword));
+        Assert.False(await UserManager(services).CheckPasswordAsync(admin, ResetPassword));
     }
 
     private static async Task BootstrapAsync(ServiceProvider services)
@@ -111,15 +233,25 @@ public sealed class DemoAdminBootstrapperTests
     private static UserManager<ApplicationUser> UserManager(ServiceProvider services)
         => services.GetRequiredService<UserManager<ApplicationUser>>();
 
+    private static async Task<ApplicationUser> GetDemoAdminAsync(ServiceProvider services)
+        => await UserManager(services).FindByEmailAsync(IdentitySeed.DemoAdminEmail)
+           ?? throw new InvalidOperationException("Demo admin should exist.");
+
+    private static void SetConfiguration(ServiceProvider services, string key, string? value)
+        => services.GetRequiredService<IConfiguration>()[key] = value;
+
     private static ServiceProvider BuildServices(
         string environmentName,
         string? enableDemoAdmin,
+        string? resetDemoAdminPassword,
         string? password,
         InMemoryLogSink? logSink = null)
     {
         var configurationValues = new Dictionary<string, string?>();
         if (enableDemoAdmin is not null)
             configurationValues[DemoAdminBootstrapper.EnableDemoAdminConfigurationKey] = enableDemoAdmin;
+        if (resetDemoAdminPassword is not null)
+            configurationValues[DemoAdminBootstrapper.ResetDemoAdminPasswordConfigurationKey] = resetDemoAdminPassword;
         if (password is not null)
             configurationValues[IdentitySeed.AdminPasswordConfigurationKey] = password;
 
@@ -144,7 +276,8 @@ public sealed class DemoAdminBootstrapperTests
             options.Password.RequireUppercase = true;
             options.Password.RequireNonAlphanumeric = true;
         })
-        .AddEntityFrameworkStores<DiamonoDbContext>();
+        .AddEntityFrameworkStores<DiamonoDbContext>()
+        .AddDefaultTokenProviders();
         services.AddScoped<DemoAdminBootstrapper>();
 
         return services.BuildServiceProvider();
