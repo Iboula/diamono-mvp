@@ -1,5 +1,5 @@
 @page "/admin/parametres"
-@layout Layout.AdminLayout
+@layout AdminLayout
 @attribute [Authorize(Policy = Permissions.SettingsView)]
 @rendermode InteractiveServer
 @inject StadiumSettingsApplicationService SettingsService

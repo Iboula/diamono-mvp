@@ -1,5 +1,5 @@
 @page "/admin"
-@layout Layout.AdminLayout
+@layout AdminLayout
 @attribute [Authorize(Policy = Permissions.BookingsView)]
 @rendermode InteractiveServer
 @inject ReportingApplicationService ReportingService

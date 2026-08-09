@@ -219,6 +219,12 @@
     letter-spacing: 0;
 }
 
+.admin-content h1:focus {
+    outline: 2px solid rgba(13, 107, 76, .24);
+    outline-offset: 4px;
+    border-radius: 6px;
+}
+
 .admin-head .eyebrow {
     font-size: 12px;
     letter-spacing: .12em;

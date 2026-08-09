@@ -1,5 +1,5 @@
 @page "/admin/paiements"
-@layout Layout.AdminLayout
+@layout AdminLayout
 @attribute [Authorize(Policy = Permissions.PaymentsMarkPaid)]
 @rendermode InteractiveServer
 @inject PaymentApplicationService PaymentService

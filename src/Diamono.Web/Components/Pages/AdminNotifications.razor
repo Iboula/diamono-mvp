@@ -1,5 +1,5 @@
 @page "/admin/notifications"
-@layout Layout.AdminLayout
+@layout AdminLayout
 @attribute [Authorize(Policy = Permissions.AdministrationManage)]
 @rendermode InteractiveServer
 @inject INotificationReader NotificationReader

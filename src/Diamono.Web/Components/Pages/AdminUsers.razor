@@ -1,5 +1,5 @@
 @page "/admin/utilisateurs"
-@layout Layout.AdminLayout
+@layout AdminLayout
 @attribute [Authorize(Policy = Permissions.AdministrationManage)]
 @rendermode InteractiveServer
 @inject IUserAdministrationService UserAdministrationService
