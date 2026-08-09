@@ -1,4 +1,7 @@
 @page "/"
+@rendermode InteractiveServer
+@inject DialogService DialogService
+
 <PageTitle>Stade Diamono de Cambérène</PageTitle>
 
 <section class="hero">
@@ -28,6 +31,24 @@
     <p>Une première version pensée pour les ASC, clubs, associations, écoles, entreprises et habitants. La demande est validée par la direction avant paiement.</p>
 </section>
 
+<section class="mayor-section">
+    <div class="mayor-photo">
+        <img src="images/doune-pathe-mbengue-maire.jpeg" alt="Doune Pathé Mbengue, Maire de Cambérène" />
+    </div>
+    <div class="mayor-content">
+        <div class="eyebrow dark">INSTITUTION</div>
+        <h2 class="mayor-title">Le Maire de Cambérène</h2>
+        <h3 class="mayor-name">Doune Pathé Mbengue</h3>
+        <p class="mayor-role">Maire de Cambérène</p>
+        <div class="mayor-summary">
+            <p>Natif de Cambérène, Doune Pathé Mbengue est Administrateur civil et ancien élève de l'École nationale d'administration (ENA).</p>
+            <p>Fort d'une expérience acquise au sein de plusieurs administrations de l'État, il œuvre aujourd'hui au développement de la commune de Cambérène avec une attention particulière portée à la jeunesse, au sport, aux infrastructures publiques et au développement local.</p>
+            <p>Le Stade Diamono constitue l'un des projets structurants de cette vision au service des habitants.</p>
+        </div>
+        <RadzenButton Text="En savoir plus" Icon="open_in_new" ButtonStyle="ButtonStyle.Primary" class="mayor-more-button" Click="@OpenMayorBioAsync" />
+    </div>
+</section>
+
 <section class="steps">
     <article><span>01</span><h3>Choisissez</h3><p>Sélectionnez votre date et votre créneau de 2 à 6 heures.</p></article>
     <article><span>02</span><h3>Demandez</h3><p>Indiquez l'activité, le responsable et un numéro de téléphone.</p></article>
@@ -47,3 +68,30 @@
         <a class="button primary" href="/reserve">Calculer ma réservation</a>
     </div>
 </section>
+
+@code {
+    private async Task OpenMayorBioAsync()
+    {
+        await DialogService.OpenAsync(
+            "Doune Pathé Mbengue",
+            _ => @<RadzenStack Gap="1rem" class="mayor-dialog">
+                <div class="mayor-dialog-heading">
+                    <span>Le Maire de Cambérène</span>
+                    <strong>Doune Pathé Mbengue</strong>
+                </div>
+                <p>
+                    Né à Cambérène, Doune Pathé Mbengue a construit son parcours scolaire dans sa commune, d'abord à Seydina Issa Laye, puis au CEM El Hadji Ibrahima Thiaw et au Lycée des Parcelles Assainies.
+                </p>
+                <p>
+                    Il poursuit ensuite ses études supérieures à l'Université Gaston Berger, où il obtient un diplôme en droit public, avant d'intégrer l'École nationale d'administration. Cette formation le conduit vers le corps des Administrateurs civils.
+                </p>
+                <p>
+                    Son expérience administrative s'est notamment construite au ministère des Mines, au ministère des Finances, au ministère de l'Intérieur et au sein de la Direction générale de l'Administration territoriale. Il complète ce parcours par des Masters en administration et en sécurité.
+                </p>
+                <p>
+                    Aujourd'hui Maire de Cambérène, il porte une action publique tournée vers le développement local, les infrastructures, la jeunesse et le sport. Le Stade Diamono s'inscrit dans cette ambition de doter les habitants d'équipements utiles, structurants et accessibles.
+                </p>
+            </RadzenStack>,
+            new DialogOptions { Width = "760px", Resizable = false, Draggable = true });
+    }
+}
