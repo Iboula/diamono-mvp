@@ -1,4 +1,5 @@
 @page "/admin/reservations"
+@layout Layout.AdminLayout
 @attribute [Authorize(Policy = Permissions.BookingsView)]
 @rendermode InteractiveServer
 @inject BookingApplicationService BookingService
@@ -98,7 +99,8 @@
 
     <div class="admin-filters">
         <RadzenTextBox @bind-Value="searchText" Placeholder="Recherche" Change="@(_ => ApplyFilters())" Style="width:100%" />
-        <RadzenDatePicker @bind-Value="filterDate" DateFormat="dd/MM/yyyy" Placeholder="Date" Change="@(_ => ApplyFilters())" Style="width:100%" />
+        <RadzenDatePicker @bind-Value="filterStartDate" DateFormat="dd/MM/yyyy" Placeholder="Date début" Change="@(_ => ApplyFilters())" Style="width:100%" />
+        <RadzenDatePicker @bind-Value="filterEndDate" DateFormat="dd/MM/yyyy" Placeholder="Date fin" Change="@(_ => ApplyFilters())" Style="width:100%" />
         <RadzenDropDown @bind-Value="filterStatus" Data="@statusOptions" TextProperty="Text" ValueProperty="Value" Placeholder="Statut" Change="@(_ => ApplyFilters())" Style="width:100%" />
         <RadzenDropDown @bind-Value="filterActivity" Data="@activityOptions" AllowClear="true" Placeholder="Type d'activite" Change="@(_ => ApplyFilters())" Style="width:100%" />
     </div>
@@ -106,32 +108,28 @@
     <RadzenDataGrid TItem="Booking" Data="@filteredBookings" AllowPaging="true" PageSize="10" AllowSorting="true"
                     RowSelect="@OpenDetailsAsync" EmptyText="Aucune reservation ne correspond aux filtres.">
         <Columns>
-            <RadzenDataGridColumn TItem="Booking" Property="Reference" Title="Reference" Width="140px">
+            <RadzenDataGridColumn TItem="Booking" Property="Reference" Title="Référence" Width="150px">
                 <Template Context="booking">
                     <strong>@booking.Reference</strong>
                 </Template>
             </RadzenDataGridColumn>
-            <RadzenDataGridColumn TItem="Booking" Property="CustomerName" Title="Client" Width="180px" />
-            <RadzenDataGridColumn TItem="Booking" Property="Phone" Title="Telephone" Width="150px" />
-            <RadzenDataGridColumn TItem="Booking" Title="Date" Width="120px">
+            <RadzenDataGridColumn TItem="Booking" Property="CustomerName" Title="Client" Width="210px" />
+            <RadzenDataGridColumn TItem="Booking" Title="Date" Width="130px">
                 <Template Context="booking">@booking.StartsAt.ToString("dd/MM/yyyy")</Template>
             </RadzenDataGridColumn>
-            <RadzenDataGridColumn TItem="Booking" Title="Debut" Width="90px">
-                <Template Context="booking">@booking.StartsAt.ToString("HH:mm")</Template>
-            </RadzenDataGridColumn>
-            <RadzenDataGridColumn TItem="Booking" Title="Fin" Width="90px">
-                <Template Context="booking">@booking.EndsAt.ToString("HH:mm")</Template>
+            <RadzenDataGridColumn TItem="Booking" Title="Horaire" Width="145px">
+                <Template Context="booking">@($"{booking.StartsAt:HH:mm} - {booking.EndsAt:HH:mm}")</Template>
             </RadzenDataGridColumn>
             <RadzenDataGridColumn TItem="Booking" Property="ActivityType" Title="Activite" Width="150px" />
-            <RadzenDataGridColumn TItem="Booking" Title="Montant" Width="130px">
+            <RadzenDataGridColumn TItem="Booking" Title="Montant" Width="145px">
                 <Template Context="booking">@FormatMoney(booking.TotalAmount)</Template>
             </RadzenDataGridColumn>
-            <RadzenDataGridColumn TItem="Booking" Title="Statut" Width="170px">
+            <RadzenDataGridColumn TItem="Booking" Title="Statut" Width="190px">
                 <Template Context="booking">
-                    <RadzenBadge BadgeStyle="@BadgeStyleForStatus(booking.Status)" Text="@StatusLabel(booking.Status)" />
+                    <span class="@StatusCss(booking.Status)">@StatusLabel(booking.Status)</span>
                 </Template>
             </RadzenDataGridColumn>
-            <RadzenDataGridColumn TItem="Booking" Title="Actions" Sortable="false" Filterable="false" Width="230px">
+            <RadzenDataGridColumn TItem="Booking" Title="Actions" Sortable="false" Filterable="false" Width="245px">
                 <Template Context="booking">
                     <div class="admin-actions">
                         @{
@@ -143,25 +141,25 @@
                         }
                         @if (showApprove)
                         {
-                            <RadzenButton Size="ButtonSize.Small" Icon="check" Text="Approuver" ButtonStyle="ButtonStyle.Success" Click="@(() => ApproveAsync(booking.Id))" />
+                            <RadzenButton class="admin-action-button" Size="ButtonSize.Small" Text="✓" ButtonStyle="ButtonStyle.Success" Click="@(() => ApproveAsync(booking.Id))" title="Approuver" />
                         }
                         @if (showReject)
                         {
-                            <RadzenButton Size="ButtonSize.Small" Icon="close" Text="Refuser" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Outlined" Click="@(() => RejectAsync(booking.Id))" />
+                            <RadzenButton class="admin-action-button" Size="ButtonSize.Small" Text="✕" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Outlined" Click="@(() => RejectAsync(booking.Id))" title="Refuser" />
                         }
                         @if (showMarkPaid)
                         {
-                            <RadzenButton Size="ButtonSize.Small" Icon="payments" Text="Enregistrer paiement" ButtonStyle="ButtonStyle.Info" Click="@(() => OpenPaymentDialogAsync(booking))" />
+                            <RadzenButton class="admin-action-button admin-action-wide" Size="ButtonSize.Small" Text="✓ Payé" ButtonStyle="ButtonStyle.Info" Click="@(() => OpenPaymentDialogAsync(booking))" title="Marquer payé" />
                         }
                         @if (showCancel)
                         {
-                            <RadzenButton Size="ButtonSize.Small" Icon="block" Text="Annuler" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Outlined" Click="@(() => CancelAsync(booking.Id))" />
+                            <RadzenButton class="admin-action-button" Size="ButtonSize.Small" Text="✕" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Outlined" Click="@(() => CancelAsync(booking.Id))" title="Annuler" />
                         }
                         @if (paidPaymentByBookingId.TryGetValue(booking.Id, out var paidPaymentId))
                         {
-                            <a class="button ghost-dark" href="@ReceiptUrl(paidPaymentId)" target="_blank">Reçu</a>
+                            <a class="admin-action-link" href="@ReceiptUrl(paidPaymentId)" target="_blank" title="Reçu de paiement">📄</a>
                         }
-                        <a class="button ghost-dark" href="@ProvisionalReceiptUrl(booking.Id)" target="_blank">Reçu provisoire</a>
+                        <a class="admin-action-link admin-action-wide" href="@ProvisionalReceiptUrl(booking.Id)" target="_blank" title="Reçu provisoire">📄 Reçu</a>
                     </div>
                 </Template>
             </RadzenDataGridColumn>
@@ -175,7 +173,8 @@
     private List<BookingBlock> bookingBlocks = [];
     private List<string> activityOptions = [];
     private string? searchText;
-    private DateTime? filterDate;
+    private DateTime? filterStartDate;
+    private DateTime? filterEndDate;
     private BookingStatus? filterStatus;
     private string? filterActivity;
     private string actionReason = string.Empty;
@@ -283,10 +282,16 @@
                 x.ActivityType.Contains(term, StringComparison.OrdinalIgnoreCase));
         }
 
-        if (filterDate is not null)
+        if (filterStartDate is not null)
         {
-            var date = DateOnly.FromDateTime(filterDate.Value);
-            query = query.Where(x => DateOnly.FromDateTime(x.StartsAt.DateTime) == date);
+            var startDate = DateOnly.FromDateTime(filterStartDate.Value);
+            query = query.Where(x => DateOnly.FromDateTime(x.StartsAt.DateTime) >= startDate);
+        }
+
+        if (filterEndDate is not null)
+        {
+            var endDate = DateOnly.FromDateTime(filterEndDate.Value);
+            query = query.Where(x => DateOnly.FromDateTime(x.StartsAt.DateTime) <= endDate);
         }
 
         if (filterStatus is not null)
@@ -494,7 +499,7 @@
                     <div class="admin-detail-item"><span>Montant</span><strong>@FormatMoney(booking.TotalAmount)</strong></div>
                     <div class="admin-detail-item">
                         <span>Statut</span>
-                        <RadzenBadge BadgeStyle="@BadgeStyleForStatus(booking.Status)" Text="@StatusLabel(booking.Status)" />
+                        <span class="@StatusCss(booking.Status)">@StatusLabel(booking.Status)</span>
                     </div>
                     <div class="admin-detail-item"><span>ApprovedAt</span><strong>@FormatDateTime(booking.ApprovedAt)</strong></div>
                     <div class="admin-detail-item"><span>RejectedAt</span><strong>@FormatDateTime(booking.RejectedAt)</strong></div>
@@ -557,14 +562,14 @@
         _ => status.ToString()
     };
 
-    private static BadgeStyle BadgeStyleForStatus(BookingStatus status) => status switch
+    private static string StatusCss(BookingStatus status) => status switch
     {
-        BookingStatus.PendingApproval => BadgeStyle.Warning,
-        BookingStatus.AwaitingPayment => BadgeStyle.Info,
-        BookingStatus.Confirmed => BadgeStyle.Success,
-        BookingStatus.Rejected => BadgeStyle.Danger,
-        BookingStatus.Cancelled => BadgeStyle.Secondary,
-        _ => BadgeStyle.Light
+        BookingStatus.PendingApproval => "admin-status admin-status-pending",
+        BookingStatus.AwaitingPayment => "admin-status admin-status-payment",
+        BookingStatus.Confirmed => "admin-status admin-status-confirmed",
+        BookingStatus.Rejected => "admin-status admin-status-rejected",
+        BookingStatus.Cancelled => "admin-status admin-status-cancelled",
+        _ => "admin-status"
     };
 
     private sealed record StatusOption(BookingStatus? Value, string Text);

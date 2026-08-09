@@ -1,0 +1,96 @@
+@inherits LayoutComponentBase
+@using Diamono.Domain.Security
+@using Diamono.Infrastructure.Identity
+
+<div class="admin-shell">
+    <input id="admin-nav-toggle" class="admin-nav-toggle" type="checkbox" />
+
+    <aside class="admin-sidebar">
+        <div class="admin-sidebar-brand">
+            <span class="admin-brand-mark">D</span>
+            <div>
+                <strong>Diamono</strong>
+                <span>Stade Municipal</span>
+            </div>
+        </div>
+
+        <nav class="admin-nav">
+            <div class="admin-nav-section">Administration</div>
+            <NavLink href="/admin" Match="NavLinkMatch.All">Dashboard</NavLink>
+            <NavLink href="/disponibilites">Disponibilités</NavLink>
+            <NavLink href="/admin/reservations">Réservations</NavLink>
+            <AuthorizeView Policy="@Permissions.PaymentsMarkPaid">
+                <Authorized>
+                    <NavLink href="/admin/paiements">Paiements</NavLink>
+                </Authorized>
+            </AuthorizeView>
+            <AuthorizeView Policy="@Permissions.AdministrationManage">
+                <Authorized>
+                    <NavLink href="/admin/utilisateurs">Utilisateurs</NavLink>
+                </Authorized>
+            </AuthorizeView>
+
+            <div class="admin-nav-section">Configuration</div>
+            <AuthorizeView Policy="@Permissions.SettingsView">
+                <Authorized>
+                    <NavLink href="/admin/parametres">Paramètres</NavLink>
+                </Authorized>
+            </AuthorizeView>
+
+            <div class="admin-nav-section">Support</div>
+            <AuthorizeView Policy="@Permissions.AdministrationManage">
+                <Authorized>
+                    <NavLink href="/admin/audit">Audit</NavLink>
+                    <NavLink href="/admin/notifications">Notifications</NavLink>
+                </Authorized>
+            </AuthorizeView>
+        </nav>
+    </aside>
+
+    <label class="admin-sidebar-backdrop" for="admin-nav-toggle"></label>
+
+    <div class="admin-main">
+        <header class="admin-topbar">
+            <label class="admin-menu-button" for="admin-nav-toggle" aria-label="Ouvrir le menu">☰</label>
+            <div class="admin-topbar-title">
+                <span>Backoffice</span>
+                <strong>Gestion du Stade Diamono</strong>
+            </div>
+            <AuthorizeView>
+                <Authorized Context="auth">
+                    <div class="admin-userbox">
+                        <div>
+                            <strong>@DisplayName(auth)</strong>
+                            <span>@RoleLabel(auth)</span>
+                        </div>
+                        <a class="admin-logout" href="/logout">Déconnexion</a>
+                    </div>
+                </Authorized>
+            </AuthorizeView>
+        </header>
+
+        <main class="admin-content">
+            @Body
+        </main>
+    </div>
+</div>
+
+<RadzenComponents @rendermode="InteractiveServer" />
+
+@code {
+    private static string DisplayName(AuthenticationState state)
+        => state.User.FindFirst(ApplicationUserClaimsPrincipalFactory.DisplayNameClaimType)?.Value
+            ?? state.User.Identity?.Name
+            ?? "Administrateur Diamono";
+
+    private static string RoleLabel(AuthenticationState state)
+    {
+        var roles = state.User.Claims
+            .Where(x => x.Type is System.Security.Claims.ClaimTypes.Role or "role")
+            .Select(x => x.Value)
+            .Distinct()
+            .ToArray();
+
+        return roles.Length == 0 ? "Backoffice" : string.Join(", ", roles);
+    }
+}
