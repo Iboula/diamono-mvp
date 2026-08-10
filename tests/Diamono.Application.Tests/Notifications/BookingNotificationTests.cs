@@ -35,6 +35,7 @@ public sealed class BookingNotificationTests
         Assert.Equal(booking.Id, notification.BookingId);
         Assert.Equal(NotificationTemplate.BookingCreated, notification.Template);
         Assert.Equal(NotificationChannel.Sms, notification.Channel);
+        Assert.Equal($"Stade Diamono : demande {booking.Reference} recue. Nous vous informerons apres validation.", notification.Body);
     }
 
     [Fact]
@@ -52,8 +53,8 @@ public sealed class BookingNotificationTests
 
         var notification = Assert.Single(notifications.Requests);
         Assert.Equal(NotificationTemplate.BookingApproved, notification.Template);
-        Assert.Contains("8 h", notification.Body);
-        Assert.DoesNotContain("24 h", notification.Body);
+        Assert.Contains("8h", notification.Body);
+        Assert.DoesNotContain("24h", notification.Body);
         Assert.Contains("paymentDeadlineHours = 8", notification.Metadata!.ToString());
     }
 
@@ -87,7 +88,9 @@ public sealed class BookingNotificationTests
 
         await paymentService.MarkCashPaymentAsPaidAsync(new MarkCashPaymentAsPaidRequest(booking.Id, PaymentMethod.Cash));
 
-        Assert.Equal(NotificationTemplate.BookingMarkedPaid, Assert.Single(notifications.Requests).Template);
+        var notification = Assert.Single(notifications.Requests);
+        Assert.Equal(NotificationTemplate.BookingMarkedPaid, notification.Template);
+        Assert.Contains("paiement recu", notification.Body);
     }
 
     [Fact]

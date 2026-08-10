@@ -27,10 +27,14 @@ public sealed class DevelopmentNotificationService(
         var result = await provider.SendAsync(request, cancellationToken);
         if (result.Success)
         {
-            log.MarkSent();
+            log.MarkSent(result.Channel, result.Provider, result.ProviderMessageId);
             return;
         }
 
-        log.MarkFailed(result.Error ?? "Echec de livraison de la notification.");
+        log.MarkFailed(
+            result.Error ?? "Echec de livraison de la notification.",
+            result.Channel,
+            result.Provider,
+            result.ErrorCode);
     }
 }

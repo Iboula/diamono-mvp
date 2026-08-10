@@ -209,7 +209,7 @@ public sealed class PaymentApplicationService(
             NotificationChannel.Sms,
             NotificationTemplate.BookingMarkedPaid,
             "Reservation confirmee",
-            $"Votre paiement pour la demande {booking.Reference} a ete enregistre. Votre reservation est confirmee.",
+            $"Stade Diamono : paiement recu. Votre reservation {booking.Reference} est confirmee.",
             new
             {
                 reference = booking.Reference,

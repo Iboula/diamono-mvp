@@ -4,6 +4,7 @@ using Diamono.Application.Payments;
 using Diamono.Domain.Security;
 using Diamono.Infrastructure;
 using Diamono.Infrastructure.Identity;
+using Diamono.Infrastructure.Notifications;
 using Diamono.Infrastructure.Persistence;
 using Diamono.Web.Components;
 using Diamono.Web.Health;
@@ -188,6 +189,25 @@ app.MapGet("/admin/reservations/{bookingId:guid}/recu-provisoire", async (
     var receipt = await receiptService.GenerateBackOfficeReceiptAsync(bookingId, cancellationToken);
     return Results.File(receipt.Content, receipt.ContentType, receipt.FileName);
 }).RequireAuthorization(Permissions.BookingsView);
+app.MapPost("/api/notifications/twilio/status", async (
+    HttpContext context,
+    TwilioStatusCallbackHandler handler,
+    CancellationToken cancellationToken) =>
+{
+    if (!context.Request.HasFormContentType)
+        return Results.BadRequest();
+
+    var form = await context.Request.ReadFormAsync(cancellationToken);
+    var values = form.ToDictionary(x => x.Key, x => x.Value.ToString(), StringComparer.Ordinal);
+    var callbackUrl = $"{context.Request.Scheme}://{context.Request.Host}{context.Request.Path}";
+    var result = await handler.HandleAsync(
+        callbackUrl,
+        values,
+        context.Request.Headers["X-Twilio-Signature"].ToString(),
+        cancellationToken);
+
+    return result.SignatureValid ? Results.Ok() : Results.Unauthorized();
+}).AllowAnonymous().DisableAntiforgery();
 if (app.Environment.IsEnvironment("Testing"))
 {
     app.MapGet("/__test/throw", (HttpContext _) =>

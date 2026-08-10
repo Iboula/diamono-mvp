@@ -87,3 +87,18 @@ scripts/smoke-demo.sh https://<render-url>
 - recu PDF;
 - audit;
 - dashboard.
+
+## Secrets Twilio Render
+
+Pour DIA-032, les notifications reelles SMS et WhatsApp utilisent des secrets
+Render optionnels :
+
+- `DIAMONO_NOTIFICATION_MODE=Demo` ou `Production`
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_SMS_FROM`
+- `TWILIO_WHATSAPP_FROM`
+
+Ces variables doivent etre saisies dans Render. Ne jamais les ajouter en clair
+dans `render.yaml`; si elles sont referencees dans un blueprint, utiliser
+`sync: false`.

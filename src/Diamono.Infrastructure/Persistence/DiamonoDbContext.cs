@@ -114,6 +114,10 @@ public sealed class DiamonoDbContext(DbContextOptions<DiamonoDbContext> options)
             b.Property(x => x.Subject).HasMaxLength(200).IsRequired();
             b.Property(x => x.Body).HasMaxLength(1200).IsRequired();
             b.Property(x => x.Error).HasMaxLength(1000);
+            b.Property(x => x.Provider).HasMaxLength(80);
+            b.Property(x => x.ProviderMessageId).HasMaxLength(160);
+            b.Property(x => x.ErrorCode).HasMaxLength(80);
+            b.Property(x => x.ErrorMessageSafe).HasMaxLength(1000);
         });
 
         modelBuilder.Entity<Payment>(b =>

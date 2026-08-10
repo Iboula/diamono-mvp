@@ -49,7 +49,11 @@ public sealed class NotificationReader(
                     x.notification.Status,
                     x.notification.SentAt,
                     x.notification.Error,
-                    x.notification.MetadataJson))
+                    x.notification.MetadataJson,
+                    x.notification.Provider,
+                    x.notification.ProviderMessageId,
+                    x.notification.ErrorCode,
+                    x.notification.ErrorMessageSafe))
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(cancellationToken);
     }

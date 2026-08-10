@@ -55,3 +55,18 @@ d'environnement de session :
 $env:DIAMONO_CONNECTION = "Host=localhost;Port=5432;Database=diamono;Username=diamono;Password=<secret>"
 $env:DIAMONO_ADMIN_PASSWORD = "<mot-de-passe-local>"
 ```
+
+## Secrets Twilio
+
+Les notifications reelles DIA-032 utilisent :
+
+| Variable | Usage |
+|---|---|
+| `DIAMONO_NOTIFICATION_MODE` | `Development`, `Demo` ou `Production` |
+| `TWILIO_ACCOUNT_SID` | Identifiant compte Twilio |
+| `TWILIO_AUTH_TOKEN` | Secret de signature et API Twilio |
+| `TWILIO_SMS_FROM` | Numero expediteur SMS |
+| `TWILIO_WHATSAPP_FROM` | Expediteur WhatsApp, par exemple `whatsapp:+XXXXXXXXXXX` |
+
+Ces valeurs doivent rester dans le gestionnaire de secrets local, CI ou Render.
+Elles ne doivent jamais etre commitees.

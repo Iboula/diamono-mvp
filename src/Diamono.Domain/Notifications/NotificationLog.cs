@@ -42,19 +42,65 @@ public sealed class NotificationLog
     public DateTimeOffset? SentAt { get; private set; }
     public string? Error { get; private set; }
     public string? MetadataJson { get; private set; }
+    public string? Provider { get; private set; }
+    public string? ProviderMessageId { get; private set; }
+    public string? ErrorCode { get; private set; }
+    public string? ErrorMessageSafe { get; private set; }
 
-    public void MarkSent()
+    public void MarkSent(
+        NotificationChannel? channel = null,
+        string? provider = null,
+        string? providerMessageId = null)
     {
+        if (channel is not null) Channel = channel.Value;
+        Provider = NormalizeOptional(provider);
+        ProviderMessageId = NormalizeOptional(providerMessageId);
         Status = NotificationStatus.Sent;
         SentAt = DateTimeOffset.UtcNow;
         Error = null;
+        ErrorCode = null;
+        ErrorMessageSafe = null;
     }
 
-    public void MarkFailed(string error)
+    public void MarkFailed(
+        string error,
+        NotificationChannel? channel = null,
+        string? provider = null,
+        string? errorCode = null)
     {
         if (string.IsNullOrWhiteSpace(error)) throw new ArgumentException("Error is required.", nameof(error));
 
+        if (channel is not null) Channel = channel.Value;
+        Provider = NormalizeOptional(provider);
         Status = NotificationStatus.Failed;
         Error = error.Trim();
+        ErrorMessageSafe = error.Trim();
+        ErrorCode = NormalizeOptional(errorCode);
     }
+
+    public void MarkDeliveryStatus(NotificationStatus status, string? errorCode = null, string? errorMessageSafe = null)
+    {
+        if (status is not NotificationStatus.Pending and not NotificationStatus.Sent and not NotificationStatus.Delivered and not NotificationStatus.Failed)
+            throw new ArgumentOutOfRangeException(nameof(status), status, "Status callback unsupported.");
+
+        Status = status;
+        if (status == NotificationStatus.Pending)
+            return;
+
+        if (status is NotificationStatus.Sent or NotificationStatus.Delivered)
+        {
+            SentAt ??= DateTimeOffset.UtcNow;
+            Error = null;
+            ErrorCode = null;
+            ErrorMessageSafe = null;
+            return;
+        }
+
+        ErrorCode = NormalizeOptional(errorCode);
+        ErrorMessageSafe = NormalizeOptional(errorMessageSafe) ?? "Echec de livraison Twilio.";
+        Error = ErrorMessageSafe;
+    }
+
+    private static string? NormalizeOptional(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

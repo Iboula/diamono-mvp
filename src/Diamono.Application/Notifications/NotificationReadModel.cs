@@ -13,4 +13,8 @@ public sealed record NotificationReadModel(
     NotificationStatus Status,
     DateTimeOffset? SentAt,
     string? Error,
-    string? MetadataJson);
+    string? MetadataJson,
+    string? Provider,
+    string? ProviderMessageId,
+    string? ErrorCode,
+    string? ErrorMessageSafe);

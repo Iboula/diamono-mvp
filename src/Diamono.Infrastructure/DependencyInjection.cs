@@ -37,7 +37,14 @@ public static class DependencyInjection
         services.AddScoped<IUserAdministrationService, UserAdministrationService>();
         services.AddScoped<IAuditWriter, AuditWriter>();
         services.AddScoped<IAuditReader, AuditReader>();
-        services.AddScoped<INotificationProvider, DevelopmentNotificationProvider>();
+        services.AddSingleton(TwilioNotificationOptions.FromConfiguration(configuration));
+        services.AddSingleton<IPhoneNumberNormalizer, PhoneNumberNormalizer>();
+        services.AddSingleton<ITwilioMessageGateway, HttpTwilioMessageGateway>();
+        services.AddScoped<DevelopmentNotificationProvider>();
+        services.AddScoped<TwilioSmsNotificationProvider>();
+        services.AddScoped<TwilioWhatsAppNotificationProvider>();
+        services.AddScoped<TwilioStatusCallbackHandler>();
+        services.AddScoped<INotificationProvider, TwilioFallbackNotificationProvider>();
         services.AddScoped<INotificationService, DevelopmentNotificationService>();
         services.AddScoped<INotificationReader, NotificationReader>();
         services.AddScoped<IPaymentProvider, ManualPaymentProvider>();

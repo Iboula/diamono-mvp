@@ -173,31 +173,31 @@ public sealed class BookingApplicationService(
         {
             NotificationTemplate.BookingCreated => new(
                 "Demande recue",
-                $"Votre demande {booking.Reference} pour le Stade Diamono a bien ete recue. Elle est en attente de validation.",
+                $"Stade Diamono : demande {booking.Reference} recue. Nous vous informerons apres validation.",
                 BaseMetadata(booking)),
             NotificationTemplate.BookingApproved => new(
                 "Demande approuvee",
-                $"Votre demande {booking.Reference} pour le Stade Diamono a ete approuvee. Le paiement doit etre effectue dans un delai de {PaymentDeadlineHours(settings)} h.",
+                $"Stade Diamono : votre demande {booking.Reference} est approuvee. Paiement requis sous {PaymentDeadlineHours(settings)}h.",
                 BaseMetadata(booking, PaymentDeadlineHours(settings))),
             NotificationTemplate.BookingRejected => new(
                 "Demande refusee",
-                $"Votre demande {booking.Reference} pour le Stade Diamono a ete refusee. Motif : {reason}.",
+                $"Stade Diamono : demande {booking.Reference} refusee. Motif : {reason}.",
                 BaseMetadata(booking, rejectionReason: reason)),
             NotificationTemplate.BookingMarkedPaid => new(
                 "Reservation confirmee",
-                $"Votre paiement pour la demande {booking.Reference} a ete enregistre. Votre reservation est confirmee.",
+                $"Stade Diamono : paiement recu. Votre reservation {booking.Reference} est confirmee.",
                 BaseMetadata(booking)),
             NotificationTemplate.BookingCancelled => new(
                 "Reservation annulee",
-                $"Votre demande {booking.Reference} pour le Stade Diamono a ete annulee. Motif : {reason}.",
+                $"Stade Diamono : reservation {booking.Reference} annulee. Motif : {reason}.",
                 BaseMetadata(booking, cancellationReason: reason)),
             NotificationTemplate.BookingPaymentReminder => new(
                 "Rappel de paiement",
-                $"Rappel : le paiement de votre demande {booking.Reference} pour le Stade Diamono est attendu sous {PaymentDeadlineHours(settings)} h.",
+                $"Stade Diamono : rappel paiement {booking.Reference}. Paiement requis sous {PaymentDeadlineHours(settings)}h.",
                 BaseMetadata(booking, PaymentDeadlineHours(settings))),
             NotificationTemplate.BookingUpcomingReminder => new(
                 "Rappel de reservation",
-                $"Rappel : votre reservation {booking.Reference} au Stade Diamono est prevue le {booking.StartsAt:dd/MM/yyyy} a {booking.StartsAt:HH:mm}.",
+                $"Stade Diamono : rappel reservation {booking.Reference} le {booking.StartsAt:dd/MM/yyyy} a {booking.StartsAt:HH:mm}.",
                 BaseMetadata(booking)),
             _ => throw new ArgumentOutOfRangeException(nameof(template), template, "Template de notification inconnu.")
         };

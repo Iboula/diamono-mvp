@@ -43,13 +43,17 @@
             <RadzenDataGridColumn TItem="NotificationReadModel" Title="Canal" Width="110px">
                 <Template Context="item"><RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@ChannelLabel(item.Channel)" /></Template>
             </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="NotificationReadModel" Property="Provider" Title="Provider" Width="120px" />
             <RadzenDataGridColumn TItem="NotificationReadModel" Title="Template" Width="210px">
                 <Template Context="item">@TemplateLabel(item.Template)</Template>
             </RadzenDataGridColumn>
             <RadzenDataGridColumn TItem="NotificationReadModel" Title="Statut" Width="120px">
                 <Template Context="item"><RadzenBadge BadgeStyle="@StatusStyle(item.Status)" Text="@StatusLabel(item.Status)" /></Template>
             </RadzenDataGridColumn>
-            <RadzenDataGridColumn TItem="NotificationReadModel" Property="Error" Title="Erreur eventuelle" />
+            <RadzenDataGridColumn TItem="NotificationReadModel" Property="ProviderMessageId" Title="Message provider" Width="180px" />
+            <RadzenDataGridColumn TItem="NotificationReadModel" Title="Erreur safe">
+                <Template Context="item">@SafeError(item)</Template>
+            </RadzenDataGridColumn>
         </Columns>
     </RadzenDataGrid>
 </RadzenCard>
@@ -96,6 +100,7 @@
         {
             NotificationChannel.Email => "Email",
             NotificationChannel.Sms => "SMS",
+            NotificationChannel.WhatsApp => "WhatsApp",
             _ => channel.ToString()
         };
 
@@ -118,6 +123,7 @@
             NotificationStatus.Pending => "En attente",
             NotificationStatus.Sent => "Envoyee",
             NotificationStatus.Failed => "Echec",
+            NotificationStatus.Delivered => "Livree",
             _ => status.ToString()
         };
 
@@ -127,6 +133,12 @@
             NotificationStatus.Pending => BadgeStyle.Warning,
             NotificationStatus.Sent => BadgeStyle.Success,
             NotificationStatus.Failed => BadgeStyle.Danger,
+            NotificationStatus.Delivered => BadgeStyle.Success,
             _ => BadgeStyle.Light
         };
+
+    private static string SafeError(NotificationReadModel notification)
+        => notification.ErrorMessageSafe
+            ?? notification.Error
+            ?? (string.IsNullOrWhiteSpace(notification.ErrorCode) ? string.Empty : notification.ErrorCode);
 }
